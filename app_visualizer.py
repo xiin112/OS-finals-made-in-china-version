@@ -286,7 +286,7 @@ class CPUSchedulingTab(tk.Frame):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  2 ─ MEMORY ALLOCATION
+#  2 ─ MEMORY ALLOCATION (ANIMATED DROPIN REPLACEMENT)
 # ═══════════════════════════════════════════════════════════════════════════
 
 class MemoryAllocationTab(tk.Frame):
@@ -294,6 +294,7 @@ class MemoryAllocationTab(tk.Frame):
 
     def __init__(self, parent):
         super().__init__(parent, bg=BG)
+        self.is_running = False
         self._build_ui()
 
     def _build_ui(self):
@@ -311,153 +312,207 @@ class MemoryAllocationTab(tk.Frame):
                      state="readonly", font=FONT_BODY).pack(fill="x", padx=PAD, pady=(2, PAD))
 
         # Memory blocks
-        tk.Label(ctrl, text="Memory Blocks (KB)", bg=PANEL, fg=SUBTEXT,
-                 font=FONT_TINY).pack(anchor="w", padx=PAD)
+        tk.Label(ctrl, text="Memory Blocks (KB)", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.blocks_var = tk.StringVar(value="100 500 200 300 600")
         tk.Entry(ctrl, textvariable=self.blocks_var, bg=CARD, fg=TEXT,
                  insertbackground=TEXT, relief="flat", font=FONT_MONO,
-                 highlightthickness=1, highlightbackground=BORDER).pack(
-                 fill="x", padx=PAD, pady=(2, PAD))
+                 highlightthickness=1, highlightbackground=BORDER).pack(fill="x", padx=PAD, pady=(2, PAD))
 
         # Process sizes
-        tk.Label(ctrl, text="Process Sizes (KB)", bg=PANEL, fg=SUBTEXT,
-                 font=FONT_TINY).pack(anchor="w", padx=PAD)
+        tk.Label(ctrl, text="Process Sizes (KB)", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.procs_var = tk.StringVar(value="212 417 112 426")
         tk.Entry(ctrl, textvariable=self.procs_var, bg=CARD, fg=TEXT,
                  insertbackground=TEXT, relief="flat", font=FONT_MONO,
-                 highlightthickness=1, highlightbackground=BORDER).pack(
-                 fill="x", padx=PAD, pady=(2, PAD))
+                 highlightthickness=1, highlightbackground=BORDER).pack(fill="x", padx=PAD, pady=(2, PAD))
 
         styled_button(ctrl, "Random", self._randomize, WARN).pack(anchor="w", padx=PAD, pady=2)
-        styled_button(ctrl, "▶  Allocate", self._run, ACCENT).pack(
-            fill="x", padx=PAD, pady=(PAD, 0))
+        self.run_btn = styled_button(ctrl, "▶  Allocate", self._start_simulation, ACCENT)
+        self.run_btn.pack(fill="x", padx=PAD, pady=(PAD, 0))
 
         self.result_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=FONT_TINY,
-                                    height=12, relief="flat", state="disabled",
-                                    highlightthickness=0)
+                                   height=12, relief="flat", state="disabled", highlightthickness=0)
         self.result_text.pack(fill="x", padx=PAD, pady=PAD)
 
         right = tk.Frame(self, bg=BG)
         right.pack(side="left", fill="both", expand=True, padx=(4, PAD), pady=PAD)
-        tk.Label(right, text="Memory Map", bg=BG, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w")
+        
+        self.status_bar = tk.Label(right, text="System Idle", bg=PANEL, fg=SUBTEXT, font=FONT_BODY, anchor="w", padx=10, pady=4)
+        self.status_bar.pack(fill="x", pady=(0, 4))
+        
         self.canvas = tk.Canvas(right, bg=CARD, bd=0, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
 
     def _randomize(self):
-        blocks = sorted([random.randint(50, 600) for _ in range(6)], reverse=True)
-        procs = [random.randint(50, 450) for _ in range(5)]
+        blocks = [random.randint(100, 600) for _ in range(5)]
+        procs = [random.randint(50, 450) for _ in range(4)]
         self.blocks_var.set(" ".join(map(str, blocks)))
         self.procs_var.set(" ".join(map(str, procs)))
 
-    def _run(self):
+    def _start_simulation(self):
+        if self.is_running: return
         try:
             blocks = list(map(int, self.blocks_var.get().split()))
-            procs  = list(map(int, self.procs_var.get().split()))
+            procs = list(map(int, self.procs_var.get().split()))
         except ValueError:
             messagebox.showwarning("Error", "Enter space-separated integers.")
             return
+
+        if not blocks or not procs:
+            messagebox.showwarning("Error", "Inputs cannot be empty.")
+            return
+
+        self.is_running = True
+        self.run_btn.config(state="disabled", bg=BORDER, text="⏳ Allocating...")
+        
+        threading.Thread(target=self._run_engine, args=(blocks, procs), daemon=True).start()
+
+    def _run_engine(self, blocks, procs):
         algo = self.algo_var.get()
-        alloc = self._allocate(blocks, procs, algo)
-        self._draw(blocks, procs, alloc)
-        self._show_result(blocks, procs, alloc)
+        remaining_blocks = list(blocks)
+        allocations = [-1] * len(procs)
+        last_idx = 0  # Support track for Next Fit pointer bounds
 
-    def _allocate(self, blocks, procs, algo):
-        remaining = list(blocks); alloc = [-1] * len(procs)
-        last_idx = 0  # for Next Fit
+        for pi, p_size in enumerate(procs):
+            chosen_block_idx = -1
+            self.status_bar.config(text=f"Scanning partitions for Process {pi+1} ({p_size}KB)...", fg=WARN)
 
-        for i, size in enumerate(procs):
             if algo == "First Fit":
-                for j, b in enumerate(remaining):
-                    if b >= size:
-                        alloc[i] = j; remaining[j] -= size; break
+                for bi, b_size in enumerate(remaining_blocks):
+                    self._ui_tick(blocks, procs, allocations, scan_block_idx=bi, active_proc_idx=pi)
+                    if b_size >= p_size:
+                        chosen_block_idx = bi
+                        break
+
             elif algo == "Best Fit":
-                best = -1
-                for j, b in enumerate(remaining):
-                    if b >= size:
-                        if best == -1 or remaining[j] < remaining[best]:
-                            best = j
-                if best != -1:
-                    alloc[i] = best; remaining[best] -= size
+                best_fit_diff = float('inf')
+                for bi, b_size in enumerate(remaining_blocks):
+                    self._ui_tick(blocks, procs, allocations, scan_block_idx=bi, active_proc_idx=pi)
+                    if b_size >= p_size and (b_size - p_size) < best_fit_diff:
+                        best_fit_diff = b_size - p_size
+                        chosen_block_idx = bi
+                if chosen_block_idx != -1:
+                    self._ui_tick(blocks, procs, allocations, scan_block_idx=chosen_block_idx, active_proc_idx=pi)
+
             elif algo == "Worst Fit":
-                worst = -1
-                for j, b in enumerate(remaining):
-                    if b >= size:
-                        if worst == -1 or remaining[j] > remaining[worst]:
-                            worst = j
-                if worst != -1:
-                    alloc[i] = worst; remaining[worst] -= size
+                worst_fit_diff = -1
+                for bi, b_size in enumerate(remaining_blocks):
+                    self._ui_tick(blocks, procs, allocations, scan_block_idx=bi, active_proc_idx=pi)
+                    if b_size >= p_size and (b_size - p_size) > worst_fit_diff:
+                        worst_fit_diff = b_size - p_size
+                        chosen_block_idx = bi
+                if chosen_block_idx != -1:
+                    self._ui_tick(blocks, procs, allocations, scan_block_idx=chosen_block_idx, active_proc_idx=pi)
+
             elif algo == "Next Fit":
                 start = last_idx
-                for k in range(len(remaining)):
-                    j = (start + k) % len(remaining)
-                    if remaining[j] >= size:
-                        alloc[i] = j; remaining[j] -= size
-                        last_idx = j; break
-        return alloc
+                for k in range(len(remaining_blocks)):
+                    bi = (start + k) % len(remaining_blocks)
+                    self._ui_tick(blocks, procs, allocations, scan_block_idx=bi, active_proc_idx=pi)
+                    if remaining_blocks[bi] >= p_size:
+                        chosen_block_idx = bi
+                        last_idx = bi
+                        break
 
-    BLOCK_COLORS = ["#7c6af7","#38c9b0","#f7c26a","#f76a6a","#6af7a1","#f7a26a"]
+            if chosen_block_idx != -1:
+                allocations[pi] = chosen_block_idx
+                remaining_blocks[chosen_block_idx] -= p_size
+                self.status_bar.config(text=f"✅ Process {pi+1} allocated to Block {chosen_block_idx+1}!", fg=GREEN)
+            else:
+                self.status_bar.config(text=f"❌ Process {pi+1} failed to allocate (Insufficent Memory).", fg=DANGER)
+            
+            time.sleep(0.6)  # Pause to notice settlement bound
+            self._update_text_results(blocks, remaining_blocks, procs, allocations)
 
-    def _draw(self, blocks, procs, alloc):
-        c = self.canvas; c.delete("all")
-        W = c.winfo_width() or 800; H = c.winfo_height() or 350
+        self.is_running = False
+        self.run_btn.config(state="normal", bg=ACCENT, text="▶  Allocate")
+        self.status_bar.config(text="Allocation Mapping Complete", fg=GREEN)
+
+    # ── UI Renderer Sync ────────────────────────────────────────────────────
+    
+    def _ui_tick(self, blocks, procs, alloc, scan_block_idx=-1, active_proc_idx=-1):
+        self._draw_memory_map(blocks, procs, alloc, scan_block_idx, active_proc_idx)
+        time.sleep(0.5)
+
+    BLOCK_COLORS = ["#7c6af7", "#38c9b0", "#f7c26a", "#f76a6a", "#6af7a1", "#f7a26a"]
+
+    def _draw_memory_map(self, blocks, procs, alloc, scan_block_idx, active_proc_idx):
+        c = self.canvas
+        c.delete("all")
+        
+        W = c.winfo_width() or 800
+        H = c.winfo_height() or 350
         max_b = max(blocks) if blocks else 1
-        bar_w = 60; gap = 30
+        bar_w = 65
+        gap = 35
         total_w = len(blocks) * (bar_w + gap)
         start_x = (W - total_w) // 2
-        top_y = 60; bottom_y = H - 60
+        top_y = 60
+        bottom_y = H - 70
 
-        c.create_text(W//2, 22, text=f"Memory Allocation  —  {self.algo_var.get()}",
-                      fill=TEXT, font=FONT_H3)
-
-        proc_colors = {}
-        for pi, bi in enumerate(alloc):
-            if bi != -1:
-                proc_colors[bi] = self.BLOCK_COLORS[pi % len(self.BLOCK_COLORS)]
+        c.create_text(W//2, 22, text=f"Memory Spaces Partition Map — {self.algo_var.get()}", fill=TEXT, font=FONT_H3)
 
         for i, block in enumerate(blocks):
             x = start_x + i * (bar_w + gap)
             bh = int((block / max_b) * (bottom_y - top_y))
             by = bottom_y - bh
 
-            # full block (gray)
-            c.create_rectangle(x, by, x+bar_w, bottom_y,
-                                fill="#2a2d40", outline=BORDER, width=1)
-            c.create_text(x + bar_w//2, by - 14,
-                           text=f"{block}KB", fill=SUBTEXT, font=FONT_TINY)
-            c.create_text(x + bar_w//2, bottom_y + 14,
-                           text=f"B{i+1}", fill=TEXT, font=("Segoe UI", 9, "bold"))
+            # Evaluate checking border highlights
+            border_color = ACCENT2 if i == scan_block_idx else BORDER
+            line_w = 2 if i == scan_block_idx else 1
 
-            # allocated portion
+            # Render full base physical structure
+            c.create_rectangle(x, by, x+bar_w, bottom_y, fill="#2a2d40", outline=border_color, width=line_w)
+            c.create_text(x + bar_w//2, by - 14, text=f"{block}KB", fill=SUBTEXT, font=FONT_TINY)
+            c.create_text(x + bar_w//2, bottom_y + 14, text=f"Block {i+1}", fill=TEXT, font=("Segoe UI", 9, "bold"))
+
+            # Calculate slice components inside current slot block
+            current_occupied_offset = 0
             for pi, bi in enumerate(alloc):
                 if bi == i:
-                    proc_h = int((procs[pi] / max_b) * (bottom_y - top_y))
-                    py = bottom_y - proc_h
+                    proc_size = procs[pi]
+                    proc_h = int((proc_size / max_b) * (bottom_y - top_y))
+                    
+                    py0 = bottom_y - current_occupied_offset - proc_h
+                    py1 = bottom_y - current_occupied_offset
+                    
                     col = self.BLOCK_COLORS[pi % len(self.BLOCK_COLORS)]
-                    c.create_rectangle(x+2, py+2, x+bar_w-2, bottom_y-2,
-                                       fill=col, outline="")
-                    label = f"P{pi+1}\n{procs[pi]}KB"
-                    c.create_text(x + bar_w//2, (py + bottom_y)//2,
-                                   text=label, fill=BG,
-                                   font=("Segoe UI", 8, "bold"), justify="center")
+                    c.create_rectangle(x+2, py0+2, x+bar_w-2, py1-2, fill=col, outline="")
+                    
+                    lbl = f"P{pi+1}\n{proc_size}KB"
+                    c.create_text(x + bar_w//2, (py0 + py1)//2, text=lbl, fill=BG, font=("Segoe UI", 8, "bold"), justify="center")
+                    
+                    current_occupied_offset += proc_h
 
-        # legend
-        lx = 20; ly = H - 20
-        for pi in range(len(procs)):
+        # Print active staging evaluation bubble indicators
+        if active_proc_idx != -1 and scan_block_idx != -1:
+            cx_target = start_x + scan_block_idx * (bar_w + gap) + bar_w // 2
+            c.create_text(cx_target, top_y - 30, text=f"Testing P{active_proc_idx+1}?", fill=WARN, font=FONT_TINY)
+
+        # Bottom dynamic placement index definitions
+        lx = 20
+        ly = H - 20
+        for pi, size in enumerate(procs):
             col = self.BLOCK_COLORS[pi % len(self.BLOCK_COLORS)]
             c.create_rectangle(lx, ly-8, lx+10, ly+2, fill=col, outline="")
-            status = f"Block {alloc[pi]+1}" if alloc[pi] != -1 else "Not Allocated"
-            c.create_text(lx+14, ly-3, text=f"P{pi+1} ({procs[pi]}KB) → {status}",
-                           fill=TEXT, font=FONT_TINY, anchor="w")
-            lx += 160
+            
+            bi = alloc[pi]
+            status = f"In Block {bi+1}" if bi != -1 else ("Pending..." if pi == active_proc_idx else "Not Allocated")
+            c.create_text(lx+14, ly-3, text=f"P{pi+1} ({size}KB) → {status}", fill=TEXT, font=FONT_TINY, anchor="w")
+            lx += 170
 
-    def _show_result(self, blocks, procs, alloc):
+    def _update_text_results(self, blocks, remaining_blocks, procs, alloc):
         lines = [f"{'Process':<10}{'Size':<10}{'Block':<10}{'Status'}"]
-        lines.append("─" * 42)
+        lines.append("─" * 45)
         for i, (size, bi) in enumerate(zip(procs, alloc)):
-            status = f"B{bi+1} (rem {blocks[bi]-size}KB)" if bi != -1 else "✗ Not allocated"
+            if bi != -1:
+                status = f"B{bi+1} (Frag {remaining_blocks[bi]}KB)"
+            else:
+                status = "✗ Out of Space"
             lines.append(f"P{i+1:<9}{size:<10}{bi+1 if bi!=-1 else '-':<10}{status}")
+            
         allocated = sum(1 for b in alloc if b != -1)
         lines.append(f"\n  Allocated: {allocated}/{len(procs)}")
+        
         self.result_text.config(state="normal")
         self.result_text.delete("1.0", "end")
         self.result_text.insert("end", "\n".join(lines))
