@@ -7,7 +7,7 @@ Visualizes core Operating System algorithms:
   3. Virtual Memory / Page Replacement (FIFO, LRU, Optimal)
   4. Mass Storage Management (FCFS, SSTF, SCAN, C-SCAN, LOOK, C-LOOK)
 
-Run with:  python3 os_visualizer.py
+Run with:  python3 app_visualizer.py
 Requires:  Python 3.8+ with tkinter (bundled with most Python installs)
 """
 
