@@ -1,14 +1,8 @@
 """
 OS Algorithm Visualizer
 ========================
-Visualizes core Operating System algorithms:
-  1. CPU Scheduling (FCFS, SJF, Priority, Round Robin)
-  2. Memory Allocation (First Fit, Best Fit, Worst Fit, Next Fit)
-  3. Virtual Memory / Page Replacement (FIFO, LRU, Optimal)
-  4. Mass Storage Management (FCFS, SSTF, SCAN, C-SCAN, LOOK, C-LOOK)
-
-Run with:  python3 app_visualizer.py
-Requires:  Python 3.8+ with tkinter (bundled with most Python installs)
+Run command:  python3 app_visualizer.py
+Required:  Python 3.8+ with tkinter
 """
 
 import tkinter as tk
@@ -58,32 +52,23 @@ def styled_button(parent, text, command, color=ACCENT, **kwargs):
     return btn
 
 def section_label(parent, text, **kwargs):
-    return tk.Label(parent, text=text, bg=PANEL, fg=TEXT,
-                    font=FONT_H2, **kwargs)
+    return tk.Label(parent, text=text, bg=PANEL, fg=TEXT, font=FONT_H2, **kwargs)
 
 def info_label(parent, text, color=SUBTEXT, **kwargs):
-    return tk.Label(parent, text=text, bg=PANEL, fg=color,
-                    font=FONT_TINY, wraplength=520, justify="left", **kwargs)
-
-def card_frame(parent, **kwargs):
-    return tk.Frame(parent, bg=CARD, bd=0, relief="flat",
-                    highlightthickness=1, highlightbackground=BORDER, **kwargs)
+    return tk.Label(parent, text=text, bg=PANEL, fg=color, font=FONT_TINY, wraplength=520, justify="left", **kwargs)
 
 def entry_row(parent, label, default="", width=8):
     f = tk.Frame(parent, bg=PANEL)
-    tk.Label(f, text=label, bg=PANEL, fg=SUBTEXT,
-             font=FONT_TINY).pack(side="left", padx=(0, 4))
+    tk.Label(f, text=label, bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(side="left", padx=(0, 4))
     v = tk.StringVar(value=default)
-    e = tk.Entry(f, textvariable=v, width=width,
-                 bg=CARD, fg=TEXT, insertbackground=TEXT,
-                 relief="flat", font=FONT_MONO,
-                 highlightthickness=1, highlightbackground=BORDER)
+    e = tk.Entry(f, textvariable=v, width=width, bg=CARD, fg=TEXT, insertbackground=TEXT,
+                 relief="flat", font=FONT_MONO, highlightthickness=1, highlightbackground=BORDER)
     e.pack(side="left")
     return f, v
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  1 ─ CPU SCHEDULING                            
+#  1 ─ CPU SCHEDULING
 # ═══════════════════════════════════════════════════════════════════════════
 
 class CPUSchedulingTab(tk.Frame):
@@ -95,7 +80,6 @@ class CPUSchedulingTab(tk.Frame):
         self._build_ui()
 
     def _build_ui(self):
-        # ── Left controls ──
         ctrl = tk.Frame(self, bg=PANEL, width=260)
         ctrl.pack(side="left", fill="y", padx=(PAD, 4), pady=PAD)
         ctrl.pack_propagate(False)
@@ -103,14 +87,12 @@ class CPUSchedulingTab(tk.Frame):
         section_label(ctrl, "CPU Scheduling").pack(anchor="w", padx=PAD, pady=(PAD, 2))
         info_label(ctrl, "Simulate how the OS picks which process runs next on the CPU.").pack(anchor="w", padx=PAD, pady=(0, PAD))
 
-        # Algorithm picker
         tk.Label(ctrl, text="Algorithm", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.algo_var = tk.StringVar(value=self.ALGOS[0])
         cb = ttk.Combobox(ctrl, textvariable=self.algo_var, values=self.ALGOS, state="readonly", font=FONT_BODY)
         cb.pack(fill="x", padx=PAD, pady=(2, PAD))
         cb.bind("<<ComboboxSelected>>", self._on_algo_change)
 
-        # RR quantum
         self.rr_frame = tk.Frame(ctrl, bg=PANEL)
         self.rr_frame.pack(fill="x", padx=PAD)
         tk.Label(self.rr_frame, text="Time Quantum", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w")
@@ -120,7 +102,6 @@ class CPUSchedulingTab(tk.Frame):
                  highlightthickness=1, highlightbackground=BORDER).pack(anchor="w", pady=2)
         self.rr_frame.pack_forget()
 
-        # Process table header
         tk.Label(ctrl, text="Processes", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD, pady=(PAD, 0))
         hdr = tk.Frame(ctrl, bg=PANEL)
         hdr.pack(fill="x", padx=PAD)
@@ -130,7 +111,7 @@ class CPUSchedulingTab(tk.Frame):
         self.proc_rows = []
         self.row_container = tk.Frame(ctrl, bg=PANEL)
         self.row_container.pack(fill="x", padx=PAD)
-        for i in range(5):  # Adjusted slightly for clean layout space
+        for i in range(5):
             self._add_row(i)
 
         btn_f = tk.Frame(ctrl, bg=PANEL)
@@ -141,15 +122,12 @@ class CPUSchedulingTab(tk.Frame):
         self.run_btn = styled_button(ctrl, "▶  Run Animation", self._start_simulation, ACCENT)
         self.run_btn.pack(fill="x", padx=PAD, pady=(0, PAD))
 
-        # Results area
         self.stats_label = tk.Label(ctrl, text="", bg=PANEL, fg=ACCENT2, font=FONT_TINY, justify="left", wraplength=230)
         self.stats_label.pack(anchor="w", padx=PAD)
 
-        # ── Right Canvas Frame ──
         right = tk.Frame(self, bg=BG)
         right.pack(side="left", fill="both", expand=True, padx=(4, PAD), pady=PAD)
 
-        # Live Status bar right above Canvas
         self.status_bar = tk.Label(right, text="System Idle", bg=PANEL, fg=SUBTEXT, font=FONT_BODY, anchor="w", padx=10, pady=4)
         self.status_bar.pack(fill="x", pady=(0, 4))
 
@@ -189,20 +167,16 @@ class CPUSchedulingTab(tk.Frame):
         for pid_v, arr_v, burst_v, prio_v in self.proc_rows:
             try:
                 procs.append({
-                    "pid": pid_v.get(),
-                    "arrival": int(arr_v.get()),
-                    "burst": int(burst_v.get()),
-                    "priority": int(prio_v.get()),
+                    "pid": pid_v.get(), "arrival": int(arr_v.get()),
+                    "burst": int(burst_v.get()), "priority": int(prio_v.get()),
                 })
-            except ValueError:
-                continue
+            except ValueError: continue
         return procs
 
     COLORS = ["#7c6af7", "#38c9b0", "#f7c26a", "#f76a6a", "#6af7a1", "#f7a26a", "#a26af7", "#6ab8f7"]
 
     def _start_simulation(self):
-        if self.is_running:
-            return
+        if self.is_running: return
         procs = self._get_processes()
         if not procs:
             messagebox.showwarning("No Data", "Add at least one process.")
@@ -211,18 +185,15 @@ class CPUSchedulingTab(tk.Frame):
         self.is_running = True
         self.run_btn.config(state="disabled", bg=BORDER, text="⏳ Running...")
         
-        # Calculate maximum possible runtime scale bound
         total_burst = sum(p["burst"] for p in procs)
         max_arrival = max(p["arrival"] for p in procs)
         self.max_time_bound = max_arrival + total_burst + 5 
 
-        # Fire off animation onto its own thread to keep UI unfrozen
         threading.Thread(target=self._run_engine, args=(procs,), daemon=True).start()
 
     def _run_engine(self, procs):
         algo = self.algo_var.get()
-        timeline = []
-        stats = []
+        timeline, stats = [], []
 
         if algo == "FCFS":
             self._animate_fcfs(procs, timeline, stats)
@@ -235,14 +206,11 @@ class CPUSchedulingTab(tk.Frame):
             except ValueError: q = 2
             self._animate_rr(procs, q, timeline, stats)
 
-        # Re-enable execute triggers
         self.is_running = False
         self.run_btn.config(state="normal", bg=ACCENT, text="▶  Run Animation")
         self.status_bar.config(text="Simulation Complete", fg=GREEN)
         self._show_stats(stats)
 
-    # ── Animated Step Engines ───────────────────────────────────────────────
-    
     def _animate_fcfs(self, procs, timeline, stats):
         procs = sorted(procs, key=lambda p: p["arrival"])
         t = 0
@@ -255,7 +223,6 @@ class CPUSchedulingTab(tk.Frame):
                 t += 1
                 timeline.append((p["pid"], start, t))
                 self._ui_tick(timeline, t, active_pid=p["pid"])
-            
             stats.append({"pid": p["pid"], "wait": start - p["arrival"], "turnaround": t - p["arrival"]})
 
     def _animate_sjf(self, procs, timeline, stats):
@@ -264,29 +231,141 @@ class CPUSchedulingTab(tk.Frame):
         while remaining:
             available = [p for p in remaining if p["arrival"] <= t]
             ready_pids = [p["pid"] for p in available]
-            
             if not available:
                 self._ui_tick(timeline, t, ready_queue=[])
                 t += 1
                 continue
-                
             p = min(available, key=lambda x: x["burst"])
             ready_pids.remove(p["pid"])
             start = t
-            
             for _ in range(p["burst"]):
                 t += 1
                 timeline.append((p["pid"], start, t))
-                # Peek at incoming elements while processing
                 current_ready = ready_pids + [r["pid"] for r in remaining if r["arrival"] <= t and r not in available]
                 self._ui_tick(timeline, t, active_pid=p["pid"], ready_queue=current_ready)
-                
             stats.append({"pid": p["pid"], "wait": start - p["arrival"], "turnaround": t - p["arrival"]})
-            remaining.
+            remaining.remove(p)
+
+    def _animate_priority(self, procs, timeline, stats):
+        remaining = list(deepcopy(procs))
+        t = 0
+        while remaining:
+            available = [p for p in remaining if p["arrival"] <= t]
+            ready_pids = [p["pid"] for p in available]
+            if not available:
+                self._ui_tick(timeline, t, ready_queue=[])
+                t += 1
+                continue
+            p = min(available, key=lambda x: x["priority"])
+            ready_pids.remove(p["pid"])
+            start = t
+            for _ in range(p["burst"]):
+                t += 1
+                timeline.append((p["pid"], start, t))
+                current_ready = ready_pids + [r["pid"] for r in remaining if r["arrival"] <= t and r not in available]
+                self._ui_tick(timeline, t, active_pid=p["pid"], ready_queue=current_ready)
+            stats.append({"pid": p["pid"], "wait": start - p["arrival"], "turnaround": t - p["arrival"]})
+            remaining.remove(p)
+
+    def _animate_rr(self, procs, quantum, timeline, stats):
+        order = sorted(procs, key=lambda p: p["arrival"])
+        remaining_burst = {p["pid"]: p["burst"] for p in procs}
+        finish = {}
+        ready = deque()
+        proc_list = list(order)
+        idx, t = 0, 0
+
+        while ready or idx < len(proc_list):
+            while idx < len(proc_list) and proc_list[idx]["arrival"] <= t:
+                if proc_list[idx]["pid"] not in ready: ready.append(proc_list[idx]["pid"])
+                idx += 1
+            if not ready:
+                self._ui_tick(timeline, t, ready_queue=[])
+                t += 1
+                continue
+            pid = ready.popleft()
+            run = min(quantum, remaining_burst[pid])
+            start = t
+            for _ in range(run):
+                t += 1
+                remaining_burst[pid] -= 1
+                timeline.append((pid, start, t))
+                while idx < len(proc_list) and proc_list[idx]["arrival"] <= t:
+                    if proc_list[idx]["pid"] not in ready: ready.append(proc_list[idx]["pid"])
+                    idx += 1
+                self._ui_tick(timeline, t, active_pid=pid, ready_queue=list(ready))
+            if remaining_burst[pid] > 0: ready.append(pid)
+            else: finish[pid] = t
+
+        for p in procs:
+            if p["pid"] in finish:
+                stats.append({"pid": p["pid"], "wait": finish[p["pid"]] - p["arrival"] - p["burst"], "turnaround": finish[p["pid"]] - p["arrival"]})
+
+    def _ui_tick(self, timeline, current_time, active_pid=None, ready_queue=None):
+        if ready_queue is None: ready_queue = []
+        q_str = " → ".join(ready_queue) if ready_queue else "Empty"
+        self.status_bar.config(text=f"Time: {current_time}s | Active CPU: {active_pid or 'IDLE'} | Ready Queue: [{q_str}]", fg=ACCENT2 if active_pid else SUBTEXT)
+        self._draw_gantt_frame(timeline, current_time)
+        time.sleep(0.4)
+
+    def _draw_gantt_frame(self, timeline, current_time):
+        c = self.canvas; c.delete("all")
+        W, H = c.winfo_width() or 800, c.winfo_height() or 300
+        margin_l, margin_r, margin_top = 60, 40, 60
+        bar_h, bar_y = 44, margin_top + 30
+        scale = (W - margin_l - margin_r) / max(self.max_time_bound, current_time, 1)
+
+        pids = list(dict.fromkeys(p for p, _, _ in timeline)) if timeline else []
+        pid_color = {p: self.COLORS[i % len(self.COLORS)] for i, p in enumerate(pids)}
+
+        c.create_text(W//2, 18, text=f"Gantt Chart Real-Time Stream — {self.algo_var.get()}", fill=TEXT, font=FONT_H3)
+        ax_y = bar_y + bar_h + 2
+        c.create_line(margin_l, ax_y, W - margin_r, ax_y, fill=BORDER, width=1)
+
+        if not timeline:
+            c.create_text(margin_l + 10, bar_y + 20, text="System startup, resolving arrivals...", fill=SUBTEXT, font=FONT_BODY, anchor="w")
+            return
+
+        drawn_blocks = []
+        for pid, start, end in timeline:
+            if not drawn_blocks or drawn_blocks[-1][0] != pid or drawn_blocks[-1][2] != start:
+                drawn_blocks.append([pid, start, end])
+            else: drawn_blocks[-1][2] = end
+
+        drawn_labels = set()
+        for pid, start, end in drawn_blocks:
+            x0, x1 = margin_l + start * scale, margin_l + end * scale
+            c.create_rectangle(x0, bar_y, x1, bar_y + bar_h, fill=pid_color.get(pid, CARD), outline=BG, width=2)
+            if x1 - x0 > 24:
+                c.create_text((x0+x1)//2, bar_y + bar_h//2, text=pid, fill=BG, font=("Segoe UI", 10, "bold"))
+            c.create_line(x0, ax_y, x0, ax_y + 6, fill=BORDER)
+            if start not in drawn_labels:
+                c.create_text(x0, ax_y + 16, text=str(start), fill=SUBTEXT, font=FONT_TINY)
+                drawn_labels.add(start)
+
+        last_t = timeline[-1][2]
+        xf = margin_l + last_t * scale
+        c.create_line(xf, ax_y, xf, ax_y + 6, fill=BORDER)
+        c.create_text(xf, ax_y + 16, text=str(last_t), fill=SUBTEXT, font=FONT_TINY)
+
+        lx, ly = margin_l, bar_y + bar_h + 45
+        for pid, col in pid_color.items():
+            c.create_rectangle(lx, ly, lx+12, ly+12, fill=col, outline="")
+            c.create_text(lx+16, ly+6, text=pid, fill=TEXT, font=FONT_TINY, anchor="w")
+            lx += 55
+
+    def _show_stats(self, stats):
+        if not stats: return
+        avg_w = sum(s["wait"] for s in stats) / len(stats)
+        avg_t = sum(s["turnaround"] for s in stats) / len(stats)
+        lines = ["  PID   Wait   Turnaround"]
+        for s in stats: lines.append(f"  {s['pid']:<6} {s['wait']:<7} {s['turnaround']}")
+        lines.append(f"\n  Avg Wait: {avg_w:.2f}   Avg Turnaround: {avg_t:.2f}")
+        self.stats_label.config(text="\n".join(lines))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  2 ─ MEMORY ALLOCATION                            
+#  2 ─ MEMORY ALLOCATION
 # ═══════════════════════════════════════════════════════════════════════════
 
 class MemoryAllocationTab(tk.Frame):
@@ -303,42 +382,31 @@ class MemoryAllocationTab(tk.Frame):
         ctrl.pack_propagate(False)
 
         section_label(ctrl, "Memory Allocation").pack(anchor="w", padx=PAD, pady=(PAD, 2))
-        info_label(ctrl, "Allocate process memory into fixed-size memory blocks.").pack(
-            anchor="w", padx=PAD, pady=(0, PAD))
+        info_label(ctrl, "Allocate process memory into fixed-size memory blocks.").pack(anchor="w", padx=PAD, pady=(0, PAD))
 
         tk.Label(ctrl, text="Algorithm", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.algo_var = tk.StringVar(value="First Fit")
-        ttk.Combobox(ctrl, textvariable=self.algo_var, values=self.ALGOS,
-                     state="readonly", font=FONT_BODY).pack(fill="x", padx=PAD, pady=(2, PAD))
+        ttk.Combobox(ctrl, textvariable=self.algo_var, values=self.ALGOS, state="readonly", font=FONT_BODY).pack(fill="x", padx=PAD, pady=(2, PAD))
 
-        # Memory blocks
         tk.Label(ctrl, text="Memory Blocks (KB)", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.blocks_var = tk.StringVar(value="100 500 200 300 600")
-        tk.Entry(ctrl, textvariable=self.blocks_var, bg=CARD, fg=TEXT,
-                 insertbackground=TEXT, relief="flat", font=FONT_MONO,
-                 highlightthickness=1, highlightbackground=BORDER).pack(fill="x", padx=PAD, pady=(2, PAD))
+        tk.Entry(ctrl, textvariable=self.blocks_var, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", font=FONT_MONO, highlightthickness=1, highlightbackground=BORDER).pack(fill="x", padx=PAD, pady=(2, PAD))
 
-        # Process sizes
         tk.Label(ctrl, text="Process Sizes (KB)", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.procs_var = tk.StringVar(value="212 417 112 426")
-        tk.Entry(ctrl, textvariable=self.procs_var, bg=CARD, fg=TEXT,
-                 insertbackground=TEXT, relief="flat", font=FONT_MONO,
-                 highlightthickness=1, highlightbackground=BORDER).pack(fill="x", padx=PAD, pady=(2, PAD))
+        tk.Entry(ctrl, textvariable=self.procs_var, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", font=FONT_MONO, highlightthickness=1, highlightbackground=BORDER).pack(fill="x", padx=PAD, pady=(2, PAD))
 
         styled_button(ctrl, "Random", self._randomize, WARN).pack(anchor="w", padx=PAD, pady=2)
         self.run_btn = styled_button(ctrl, "▶  Allocate", self._start_simulation, ACCENT)
         self.run_btn.pack(fill="x", padx=PAD, pady=(PAD, 0))
 
-        self.result_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=FONT_TINY,
-                                   height=12, relief="flat", state="disabled", highlightthickness=0)
+        self.result_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=FONT_TINY, height=12, relief="flat", state="disabled", highlightthickness=0)
         self.result_text.pack(fill="x", padx=PAD, pady=PAD)
 
         right = tk.Frame(self, bg=BG)
         right.pack(side="left", fill="both", expand=True, padx=(4, PAD), pady=PAD)
-        
         self.status_bar = tk.Label(right, text="System Idle", bg=PANEL, fg=SUBTEXT, font=FONT_BODY, anchor="w", padx=10, pady=4)
         self.status_bar.pack(fill="x", pady=(0, 4))
-        
         self.canvas = tk.Canvas(right, bg=CARD, bd=0, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
 
@@ -356,21 +424,19 @@ class MemoryAllocationTab(tk.Frame):
         except ValueError:
             messagebox.showwarning("Error", "Enter space-separated integers.")
             return
-
         if not blocks or not procs:
             messagebox.showwarning("Error", "Inputs cannot be empty.")
             return
 
         self.is_running = True
         self.run_btn.config(state="disabled", bg=BORDER, text="⏳ Allocating...")
-        
         threading.Thread(target=self._run_engine, args=(blocks, procs), daemon=True).start()
 
     def _run_engine(self, blocks, procs):
         algo = self.algo_var.get()
         remaining_blocks = list(blocks)
         allocations = [-1] * len(procs)
-        last_idx = 0  # Support track for Next Fit pointer bounds
+        last_idx = 0
 
         for pi, p_size in enumerate(procs):
             chosen_block_idx = -1
@@ -382,7 +448,6 @@ class MemoryAllocationTab(tk.Frame):
                     if b_size >= p_size:
                         chosen_block_idx = bi
                         break
-
             elif algo == "Best Fit":
                 best_fit_diff = float('inf')
                 for bi, b_size in enumerate(remaining_blocks):
@@ -390,9 +455,7 @@ class MemoryAllocationTab(tk.Frame):
                     if b_size >= p_size and (b_size - p_size) < best_fit_diff:
                         best_fit_diff = b_size - p_size
                         chosen_block_idx = bi
-                if chosen_block_idx != -1:
-                    self._ui_tick(blocks, procs, allocations, scan_block_idx=chosen_block_idx, active_proc_idx=pi)
-
+                if chosen_block_idx != -1: self._ui_tick(blocks, procs, allocations, scan_block_idx=chosen_block_idx, active_proc_idx=pi)
             elif algo == "Worst Fit":
                 worst_fit_diff = -1
                 for bi, b_size in enumerate(remaining_blocks):
@@ -400,17 +463,14 @@ class MemoryAllocationTab(tk.Frame):
                     if b_size >= p_size and (b_size - p_size) > worst_fit_diff:
                         worst_fit_diff = b_size - p_size
                         chosen_block_idx = bi
-                if chosen_block_idx != -1:
-                    self._ui_tick(blocks, procs, allocations, scan_block_idx=chosen_block_idx, active_proc_idx=pi)
-
+                if chosen_block_idx != -1: self._ui_tick(blocks, procs, allocations, scan_block_idx=chosen_block_idx, active_proc_idx=pi)
             elif algo == "Next Fit":
                 start = last_idx
                 for k in range(len(remaining_blocks)):
                     bi = (start + k) % len(remaining_blocks)
                     self._ui_tick(blocks, procs, allocations, scan_block_idx=bi, active_proc_idx=pi)
                     if remaining_blocks[bi] >= p_size:
-                        chosen_block_idx = bi
-                        last_idx = bi
+                        chosen_block_idx = bi; last_idx = bi
                         break
 
             if chosen_block_idx != -1:
@@ -418,17 +478,14 @@ class MemoryAllocationTab(tk.Frame):
                 remaining_blocks[chosen_block_idx] -= p_size
                 self.status_bar.config(text=f"✅ Process {pi+1} allocated to Block {chosen_block_idx+1}!", fg=GREEN)
             else:
-                self.status_bar.config(text=f"❌ Process {pi+1} failed to allocate (Insufficent Memory).", fg=DANGER)
-            
-            time.sleep(0.6)  # Pause to notice settlement bound
+                self.status_bar.config(text=f"❌ Process {pi+1} failed to allocate.", fg=DANGER)
+            time.sleep(0.6)
             self._update_text_results(blocks, remaining_blocks, procs, allocations)
 
         self.is_running = False
         self.run_btn.config(state="normal", bg=ACCENT, text="▶  Allocate")
         self.status_bar.config(text="Allocation Mapping Complete", fg=GREEN)
 
-    # ── UI Renderer Sync ────────────────────────────────────────────────────
-    
     def _ui_tick(self, blocks, procs, alloc, scan_block_idx=-1, active_proc_idx=-1):
         self._draw_memory_map(blocks, procs, alloc, scan_block_idx, active_proc_idx)
         time.sleep(0.5)
@@ -436,18 +493,12 @@ class MemoryAllocationTab(tk.Frame):
     BLOCK_COLORS = ["#7c6af7", "#38c9b0", "#f7c26a", "#f76a6a", "#6af7a1", "#f7a26a"]
 
     def _draw_memory_map(self, blocks, procs, alloc, scan_block_idx, active_proc_idx):
-        c = self.canvas
-        c.delete("all")
-        
-        W = c.winfo_width() or 800
-        H = c.winfo_height() or 350
+        c = self.canvas; c.delete("all")
+        W, H = c.winfo_width() or 800, c.winfo_height() or 350
         max_b = max(blocks) if blocks else 1
-        bar_w = 65
-        gap = 35
-        total_w = len(blocks) * (bar_w + gap)
-        start_x = (W - total_w) // 2
-        top_y = 60
-        bottom_y = H - 70
+        bar_w, gap = 65, 35
+        start_x = (W - (len(blocks) * (bar_w + gap))) // 2
+        top_y, bottom_y = 60, H - 70
 
         c.create_text(W//2, 22, text=f"Memory Spaces Partition Map — {self.algo_var.get()}", fill=TEXT, font=FONT_H3)
 
@@ -455,64 +506,42 @@ class MemoryAllocationTab(tk.Frame):
             x = start_x + i * (bar_w + gap)
             bh = int((block / max_b) * (bottom_y - top_y))
             by = bottom_y - bh
-
-            # Evaluate checking border highlights
             border_color = ACCENT2 if i == scan_block_idx else BORDER
             line_w = 2 if i == scan_block_idx else 1
 
-            # Render full base physical structure
             c.create_rectangle(x, by, x+bar_w, bottom_y, fill="#2a2d40", outline=border_color, width=line_w)
             c.create_text(x + bar_w//2, by - 14, text=f"{block}KB", fill=SUBTEXT, font=FONT_TINY)
             c.create_text(x + bar_w//2, bottom_y + 14, text=f"Block {i+1}", fill=TEXT, font=("Segoe UI", 9, "bold"))
 
-            # Calculate slice components inside current slot block
             current_occupied_offset = 0
             for pi, bi in enumerate(alloc):
                 if bi == i:
                     proc_size = procs[pi]
                     proc_h = int((proc_size / max_b) * (bottom_y - top_y))
-                    
                     py0 = bottom_y - current_occupied_offset - proc_h
                     py1 = bottom_y - current_occupied_offset
-                    
-                    col = self.BLOCK_COLORS[pi % len(self.BLOCK_COLORS)]
-                    c.create_rectangle(x+2, py0+2, x+bar_w-2, py1-2, fill=col, outline="")
-                    
-                    lbl = f"P{pi+1}\n{proc_size}KB"
-                    c.create_text(x + bar_w//2, (py0 + py1)//2, text=lbl, fill=BG, font=("Segoe UI", 8, "bold"), justify="center")
-                    
+                    c.create_rectangle(x+2, py0+2, x+bar_w-2, py1-2, fill=self.BLOCK_COLORS[pi % len(self.BLOCK_COLORS)], outline="")
+                    c.create_text(x + bar_w//2, (py0 + py1)//2, text=f"P{pi+1}\n{proc_size}KB", fill=BG, font=("Segoe UI", 8, "bold"), justify="center")
                     current_occupied_offset += proc_h
 
-        # Print active staging evaluation bubble indicators
         if active_proc_idx != -1 and scan_block_idx != -1:
             cx_target = start_x + scan_block_idx * (bar_w + gap) + bar_w // 2
             c.create_text(cx_target, top_y - 30, text=f"Testing P{active_proc_idx+1}?", fill=WARN, font=FONT_TINY)
 
-        # Bottom dynamic placement index definitions
-        lx = 20
-        ly = H - 20
+        lx, ly = 20, H - 20
         for pi, size in enumerate(procs):
-            col = self.BLOCK_COLORS[pi % len(self.BLOCK_COLORS)]
-            c.create_rectangle(lx, ly-8, lx+10, ly+2, fill=col, outline="")
-            
+            c.create_rectangle(lx, ly-8, lx+10, ly+2, fill=self.BLOCK_COLORS[pi % len(self.BLOCK_COLORS)], outline="")
             bi = alloc[pi]
             status = f"In Block {bi+1}" if bi != -1 else ("Pending..." if pi == active_proc_idx else "Not Allocated")
             c.create_text(lx+14, ly-3, text=f"P{pi+1} ({size}KB) → {status}", fill=TEXT, font=FONT_TINY, anchor="w")
             lx += 170
 
     def _update_text_results(self, blocks, remaining_blocks, procs, alloc):
-        lines = [f"{'Process':<10}{'Size':<10}{'Block':<10}{'Status'}"]
-        lines.append("─" * 45)
+        lines = [f"{'Process':<10}{'Size':<10}{'Block':<10}{'Status'}", "─" * 45]
         for i, (size, bi) in enumerate(zip(procs, alloc)):
-            if bi != -1:
-                status = f"B{bi+1} (Frag {remaining_blocks[bi]}KB)"
-            else:
-                status = "✗ Out of Space"
+            status = f"B{bi+1} (Frag {remaining_blocks[bi]}KB)" if bi != -1 else "✗ Out of Space"
             lines.append(f"P{i+1:<9}{size:<10}{bi+1 if bi!=-1 else '-':<10}{status}")
-            
-        allocated = sum(1 for b in alloc if b != -1)
-        lines.append(f"\n  Allocated: {allocated}/{len(procs)}")
-        
+        lines.append(f"\n  Allocated: {sum(1 for b in alloc if b != -1)}/{len(procs)}")
         self.result_text.config(state="normal")
         self.result_text.delete("1.0", "end")
         self.result_text.insert("end", "\n".join(lines))
@@ -520,7 +549,7 @@ class MemoryAllocationTab(tk.Frame):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  3 ─ VIRTUAL MEMORY (ANIMATED DROPIN REPLACEMENT)
+#  3 ─ VIRTUAL MEMORY
 # ═══════════════════════════════════════════════════════════════════════════
 
 class VirtualMemoryTab(tk.Frame):
@@ -537,27 +566,19 @@ class VirtualMemoryTab(tk.Frame):
         ctrl.pack_propagate(False)
 
         section_label(ctrl, "Virtual Memory").pack(anchor="w", padx=PAD, pady=(PAD, 2))
-        info_label(ctrl, "Page replacement decides which memory page to evict when a page fault occurs.").pack(
-            anchor="w", padx=PAD, pady=(0, PAD))
+        info_label(ctrl, "Page replacement decides which memory page to evict when a page fault occurs.").pack(anchor="w", padx=PAD, pady=(0, PAD))
 
         tk.Label(ctrl, text="Algorithm", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.algo_var = tk.StringVar(value="FIFO")
-        ttk.Combobox(ctrl, textvariable=self.algo_var, values=self.ALGOS,
-                     state="readonly", font=FONT_BODY).pack(fill="x", padx=PAD, pady=(2, PAD))
+        ttk.Combobox(ctrl, textvariable=self.algo_var, values=self.ALGOS, state="readonly", font=FONT_BODY).pack(fill="x", padx=PAD, pady=(2, PAD))
 
         tk.Label(ctrl, text="Frame Count", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.frames_var = tk.StringVar(value="3")
-        tk.Entry(ctrl, textvariable=self.frames_var, width=6, bg=CARD, fg=TEXT,
-                 insertbackground=TEXT, relief="flat", font=FONT_MONO,
-                 highlightthickness=1, highlightbackground=BORDER).pack(anchor="w", padx=PAD, pady=(2, PAD))
+        tk.Entry(ctrl, textvariable=self.frames_var, width=6, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", font=FONT_MONO, highlightthickness=1, highlightbackground=BORDER).pack(anchor="w", padx=PAD, pady=(2, PAD))
 
-        tk.Label(ctrl, text="Reference String (space-separated)", bg=PANEL,
-                 fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
+        tk.Label(ctrl, text="Reference String (space-separated)", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.ref_var = tk.StringVar(value="7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1")
-        tk.Entry(ctrl, textvariable=self.ref_var, bg=CARD, fg=TEXT,
-                 insertbackground=TEXT, relief="flat", font=FONT_MONO,
-                 highlightthickness=1, highlightbackground=BORDER).pack(
-                 fill="x", padx=PAD, pady=(2, PAD))
+        tk.Entry(ctrl, textvariable=self.ref_var, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", font=FONT_MONO, highlightthickness=1, highlightbackground=BORDER).pack(fill="x", padx=PAD, pady=(2, PAD))
 
         styled_button(ctrl, "Random String", self._randomize, WARN).pack(anchor="w", padx=PAD, pady=2)
         self.run_btn = styled_button(ctrl, "▶  Simulate", self._start_simulation, ACCENT)
@@ -566,24 +587,19 @@ class VirtualMemoryTab(tk.Frame):
         self.stats_label = tk.Label(ctrl, text="", bg=PANEL, fg=ACCENT2, font=FONT_TINY, justify="left")
         self.stats_label.pack(anchor="w", padx=PAD, pady=PAD)
 
-        # Step-through log
         tk.Label(ctrl, text="Step Log", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
-        self.log_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=("Consolas", 8),
-                                 height=14, relief="flat", state="disabled", highlightthickness=0)
+        self.log_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=("Consolas", 8), height=14, relief="flat", state="disabled", highlightthickness=0)
         self.log_text.pack(fill="both", expand=True, padx=PAD, pady=(2, PAD))
 
         right = tk.Frame(self, bg=BG)
         right.pack(side="left", fill="both", expand=True, padx=(4, PAD), pady=PAD)
-        
         self.status_bar = tk.Label(right, text="System Idle", bg=PANEL, fg=SUBTEXT, font=FONT_BODY, anchor="w", padx=10, pady=4)
         self.status_bar.pack(fill="x", pady=(0, 4))
-        
         self.canvas = tk.Canvas(right, bg=CARD, bd=0, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
 
     def _randomize(self):
-        pages = [str(random.randint(0, 7)) for _ in range(15)] # Kept around 15 for optimal visual scaling
-        self.ref_var.set(" ".join(pages))
+        self.ref_var.set(" ".join([str(random.randint(0, 7)) for _ in range(15)]))
 
     def _start_simulation(self):
         if self.is_running: return
@@ -593,7 +609,6 @@ class VirtualMemoryTab(tk.Frame):
         except ValueError:
             messagebox.showwarning("Error", "Invalid input.")
             return
-
         if not refs or frames <= 0:
             messagebox.showwarning("Error", "Provide a valid reference string and frame count > 0.")
             return
@@ -601,47 +616,31 @@ class VirtualMemoryTab(tk.Frame):
         self.is_running = True
         self.run_btn.config(state="disabled", bg=BORDER, text="⏳ Simulating...")
         self.log_lines = []
-        
         threading.Thread(target=self._run_engine, args=(refs, frames), daemon=True).start()
 
     def _run_engine(self, refs, frames):
         algo = self.algo_var.get()
-        history = []
-        faults = []
+        history, faults = [], []
 
-        if algo == "FIFO":
-            self._animate_fifo(refs, frames, history, faults)
-        elif algo == "LRU":
-            self._animate_lru(refs, frames, history, faults)
-        else:
-            self._animate_optimal(refs, frames, history, faults)
+        if algo == "FIFO": self._animate_fifo(refs, frames, history, faults)
+        elif algo == "LRU": self._animate_lru(refs, frames, history, faults)
+        else: self._animate_optimal(refs, frames, history, faults)
 
         self.is_running = False
         self.run_btn.config(state="normal", bg=ACCENT, text="▶  Simulate")
         self.status_bar.config(text="Simulation Complete", fg=GREEN)
-        
-        # Calculate terminal metrics
         total_faults = sum(faults)
-        total_refs = len(refs)
-        self.stats_label.config(
-            text=f"  Page Faults : {total_faults}\n"
-                 f"  Page Hits   : {total_refs - total_faults}\n"
-                 f"  Hit Rate    : {((total_refs - total_faults) / total_refs) * 100:.1f}%"
-        )
+        self.stats_label.config(text=f"  Page Faults : {total_faults}\n  Page Hits   : {len(refs)-total_faults}\n  Hit Rate    : {((len(refs)-total_faults)/len(refs))*100:.1f}%")
 
-    # ── Stepped Core Engines ────────────────────────────────────────────────
-    
     def _animate_fifo(self, refs, n, history, faults):
         queue = deque()
         for idx, p in enumerate(refs):
             fault = p not in queue
             if fault:
-                if len(queue) == n:
-                    queue.popleft()
+                if len(queue) == n: queue.popleft()
                 queue.append(p)
             faults.append(fault)
             history.append(list(queue))
-            
             self._ui_tick(refs[:idx+1], history, faults, n, current_step=idx)
 
     def _animate_lru(self, refs, n, history, faults):
@@ -649,14 +648,11 @@ class VirtualMemoryTab(tk.Frame):
         for idx, p in enumerate(refs):
             fault = p not in frames
             if fault:
-                if len(frames) == n:
-                    frames.popitem(last=False)
+                if len(frames) == n: frames.popitem(last=False)
                 frames[p] = True
-            else:
-                frames.move_to_end(p)
+            else: frames.move_to_end(p)
             faults.append(fault)
             history.append(list(frames.keys()))
-            
             self._ui_tick(refs[:idx+1], history, faults, n, current_step=idx)
 
     def _animate_optimal(self, refs, n, history, faults):
@@ -669,93 +665,53 @@ class VirtualMemoryTab(tk.Frame):
                     for f in frames:
                         try: future[f] = refs[idx+1:].index(f)
                         except ValueError: future[f] = float('inf')
-                    victim = max(future, key=future.get)
-                    frames.remove(victim)
+                    frames.remove(max(future, key=future.get))
                 frames.append(p)
             faults.append(fault)
             history.append(list(frames))
-            
             self._ui_tick(refs[:idx+1], history, faults, n, current_step=idx)
 
-    # ── UI Sync Hooks ───────────────────────────────────────────────────────
-    
     def _ui_tick(self, current_refs, history, faults, n_frames, current_step):
-        last_ref = current_refs[-1]
-        is_fault = faults[-1]
-        status = "FAULT (Eviction/Insertion)" if is_fault else "HIT (Page in memory)"
-        
-        self.status_bar.config(text=f"Step {current_step + 1} | Referencing Page: {last_ref} -> {status}",
-                               fg=DANGER if is_fault else GREEN)
-        
-        # Append to live step log
-        state_str = str(history[-1]).ljust(18)
-        self.log_lines.append(f"[{current_step+1:>2}] Ref: {last_ref} | Frames: {state_str} | {'❌ FAULT' if is_fault else '✅ HIT'}")
-        
+        last_ref, is_fault = current_refs[-1], faults[-1]
+        self.status_bar.config(text=f"Step {current_step + 1} | Referencing Page: {last_ref} -> {'FAULT' if is_fault else 'HIT'}", fg=DANGER if is_fault else GREEN)
+        self.log_lines.append(f"[{current_step+1:>2}] Ref: {last_ref} | Frames: {str(history[-1]).ljust(18)} | {'❌ FAULT' if is_fault else '✅ HIT'}")
         self.log_text.config(state="normal")
         self.log_text.delete("1.0", "end")
         self.log_text.insert("end", "\n".join(self.log_lines))
         self.log_text.see("end")
         self.log_text.config(state="disabled")
-
         self._draw_matrix(current_refs, history, faults, n_frames)
         time.sleep(0.5)
 
     def _draw_matrix(self, refs, history, faults, n_frames):
-        c = self.canvas
-        c.delete("all")
-        
-        W = c.winfo_width() or 800
-        H = c.winfo_height() or 350
+        c = self.canvas; c.delete("all")
+        W, H = c.winfo_width() or 800, c.winfo_height() or 350
         c.create_text(W//2, 18, text=f"Page Replacement Grid Stream — {self.algo_var.get()}", fill=TEXT, font=FONT_H3)
-
-        n = len(refs)
-        cell_w = max(28, min(48, (W - 100) // max(len(self.ref_var.get().split()), n)))
-        cell_h = 36
-        start_x = 55
-        frame_y_start = 50
-
-        colors_map = {}
+        cell_w = max(28, min(48, (W - 100) // max(len(self.ref_var.get().split()), len(refs))))
+        start_x, frame_y_start = 55, 50
         palette = [ACCENT, ACCENT2, WARN, "#f7a26a", "#a26af7", "#6ab8f7"]
+        colors_map = {}
 
         for step, (ref, state, fault) in enumerate(zip(refs, history, faults)):
             x = start_x + step * cell_w
-            
-            # Highlight current step column boundary lightly
-            if step == n - 1:
-                c.create_rectangle(x, frame_y_start + 10, x + cell_w, frame_y_start + n_frames * (cell_h + 4) + 45, 
-                                   outline=BORDER, fill="")
-
-            # Draw reference string row headers dynamically 
+            if step == len(refs) - 1:
+                c.create_rectangle(x, frame_y_start + 10, x + cell_w, frame_y_start + n_frames * 40 + 45, outline=BORDER, fill="")
             c.create_text(x + cell_w//2, 38, text=str(ref), fill=DANGER if fault else GREEN, font=("Consolas", 10, "bold"))
             
-            # Stack memory blocks inside execution slot bounds
             for fi in range(n_frames):
-                fy = frame_y_start + fi * (cell_h + 4) + 20
+                fy = frame_y_start + fi * 40 + 20
                 if fi < len(state):
                     page = state[fi]
-                    if page not in colors_map:
-                        colors_map[page] = palette[len(colors_map) % len(palette)]
-                    fill = colors_map[page]
-                    
-                    c.create_rectangle(x+2, fy, x+cell_w-2, fy+cell_h, fill=fill, outline=BG, width=1)
-                    c.create_text(x + cell_w//2, fy + cell_h//2, text=str(page), fill=BG, font=("Consolas", 10, "bold"))
+                    if page not in colors_map: colors_map[page] = palette[len(colors_map) % len(palette)]
+                    c.create_rectangle(x+2, fy, x+cell_w-2, fy+36, fill=colors_map[page], outline=BG, width=1)
+                    c.create_text(x + cell_w//2, fy + 18, text=str(page), fill=BG, font=("Consolas", 10, "bold"))
                 else:
-                    c.create_rectangle(x+2, fy, x+cell_w-2, fy+cell_h, fill="#1e2133", outline=BORDER, width=1)
-            
-            # Print state evaluation triggers beneath slots
-            fault_y = frame_y_start + n_frames * (cell_h + 4) + 30
-            if fault:
-                c.create_text(x + cell_w//2, fault_y, text="F", fill=DANGER, font=("Consolas", 9, "bold"))
-            else:
-                c.create_text(x + cell_w//2, fault_y, text="•", fill=GREEN, font=("Consolas", 12, "bold"))
+                    c.create_rectangle(x+2, fy, x+cell_w-2, fy+36, fill="#1e2133", outline=BORDER, width=1)
+            if fault: c.create_text(x + cell_w//2, frame_y_start + n_frames * 40 + 30, text="F", fill=DANGER, font=("Consolas", 9, "bold"))
+            else: c.create_text(x + cell_w//2, frame_y_start + n_frames * 40 + 30, text="•", fill=GREEN, font=("Consolas", 12, "bold"))
 
-        # Redraw persistent left vertical row mapping ticks
-        for fi in range(n_frames):
-            fy = frame_y_start + fi * (cell_h + 4) + 20 + cell_h//2
-            c.create_text(32, fy, text=f"Slot {fi+1}", fill=SUBTEXT, font=FONT_TINY)
-
-        fault_y = frame_y_start + n_frames * (cell_h + 4) + 30
-        c.create_text(32, fault_y, text="State", fill=SUBTEXT, font=FONT_TINY)
+        for fi in range(n_frames): c.create_text(32, frame_y_start + fi * 40 + 38, text=f"Slot {fi+1}", fill=SUBTEXT, font=FONT_TINY)
+        c.create_text(32, frame_y_start + n_frames * 40 + 30, text="State", fill=SUBTEXT, font=FONT_TINY)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -767,6 +723,7 @@ class MassStorageTab(tk.Frame):
 
     def __init__(self, parent):
         super().__init__(parent, bg=BG)
+        self.is_running = False
         self._build_ui()
 
     def _build_ui(self):
@@ -775,165 +732,135 @@ class MassStorageTab(tk.Frame):
         ctrl.pack_propagate(False)
 
         section_label(ctrl, "Disk Scheduling").pack(anchor="w", padx=PAD, pady=(PAD, 2))
-        info_label(ctrl, "Visualize how the disk head moves across cylinders to service I/O requests.").pack(
-            anchor="w", padx=PAD, pady=(0, PAD))
+        info_label(ctrl, "Visualize how the disk head moves across cylinders to service I/O requests.").pack(anchor="w", padx=PAD, pady=(0, PAD))
 
         tk.Label(ctrl, text="Algorithm", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.algo_var = tk.StringVar(value="FCFS")
-        ttk.Combobox(ctrl, textvariable=self.algo_var, values=self.ALGOS,
-                     state="readonly", font=FONT_BODY).pack(fill="x", padx=PAD, pady=(2, PAD))
+        ttk.Combobox(ctrl, textvariable=self.algo_var, values=self.ALGOS, state="readonly", font=FONT_BODY).pack(fill="x", padx=PAD, pady=(2, PAD))
 
         r1, self.head_var = entry_row(ctrl, "Initial Head Position", "53", 6)
         r1.pack(anchor="w", padx=PAD, pady=2)
         r2, self.max_var = entry_row(ctrl, "Max Cylinder", "199", 6)
         r2.pack(anchor="w", padx=PAD, pady=2)
 
-        # SCAN direction
         self.dir_frame = tk.Frame(ctrl, bg=PANEL)
         self.dir_frame.pack(anchor="w", padx=PAD, pady=2)
-        tk.Label(self.dir_frame, text="Initial Direction:", bg=PANEL,
-                 fg=SUBTEXT, font=FONT_TINY).pack(side="left")
+        tk.Label(self.dir_frame, text="Initial Direction:", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(side="left")
         self.dir_var = tk.StringVar(value="right")
-        tk.Radiobutton(self.dir_frame, text="→", variable=self.dir_var,
-                       value="right", bg=PANEL, fg=TEXT,
-                       selectcolor=CARD, font=FONT_TINY).pack(side="left")
-        tk.Radiobutton(self.dir_frame, text="←", variable=self.dir_var,
-                       value="left", bg=PANEL, fg=TEXT,
-                       selectcolor=CARD, font=FONT_TINY).pack(side="left")
+        tk.Radiobutton(self.dir_frame, text="→", variable=self.dir_var, value="right", bg=PANEL, fg=TEXT, selectcolor=CARD, font=FONT_TINY).pack(side="left")
+        tk.Radiobutton(self.dir_frame, text="←", variable=self.dir_var, value="left", bg=PANEL, fg=TEXT, selectcolor=CARD, font=FONT_TINY).pack(side="left")
 
-        tk.Label(ctrl, text="Request Queue (space-separated)", bg=PANEL,
-                 fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD, pady=(PAD, 0))
+        tk.Label(ctrl, text="Request Queue (space-separated)", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD, pady=(PAD, 0))
         self.req_var = tk.StringVar(value="98 183 37 122 14 124 65 67")
-        tk.Entry(ctrl, textvariable=self.req_var, bg=CARD, fg=TEXT,
-                 insertbackground=TEXT, relief="flat", font=FONT_MONO,
-                 highlightthickness=1, highlightbackground=BORDER).pack(
-                 fill="x", padx=PAD, pady=(2, PAD))
+        tk.Entry(ctrl, textvariable=self.req_var, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", font=FONT_MONO, highlightthickness=1, highlightbackground=BORDER).pack(fill="x", padx=PAD, pady=(2, PAD))
 
         styled_button(ctrl, "Random", self._randomize, WARN).pack(anchor="w", padx=PAD, pady=2)
-        styled_button(ctrl, "▶  Simulate", self._run, ACCENT).pack(
-            fill="x", padx=PAD, pady=(PAD, 0))
+        self.run_btn = styled_button(ctrl, "▶  Simulate", self._start_simulation, ACCENT)
+        self.run_btn.pack(fill="x", padx=PAD, pady=(PAD, 0))
 
-        self.stats_label = tk.Label(ctrl, text="", bg=PANEL, fg=ACCENT2,
-                                     font=FONT_TINY, justify="left")
+        self.stats_label = tk.Label(ctrl, text="", bg=PANEL, fg=ACCENT2, font=FONT_TINY, justify="left")
         self.stats_label.pack(anchor="w", padx=PAD, pady=PAD)
 
-        self.order_label = tk.Label(ctrl, text="", bg=PANEL, fg=TEXT,
-                                     font=FONT_TINY, justify="left", wraplength=230)
+        self.order_label = tk.Label(ctrl, text="", bg=PANEL, fg=TEXT, font=FONT_TINY, justify="left", wraplength=230)
         self.order_label.pack(anchor="w", padx=PAD)
 
         right = tk.Frame(self, bg=BG)
         right.pack(side="left", fill="both", expand=True, padx=(4, PAD), pady=PAD)
-        tk.Label(right, text="Disk Head Movement", bg=BG, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w")
+        self.status_bar = tk.Label(right, text="System Idle", bg=PANEL, fg=SUBTEXT, font=FONT_BODY, anchor="w", padx=10, pady=4)
+        self.status_bar.pack(fill="x", pady=(0, 4))
         self.canvas = tk.Canvas(right, bg=CARD, bd=0, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
 
     def _randomize(self):
         try: m = int(self.max_var.get())
         except: m = 199
-        reqs = sorted(random.sample(range(0, m+1), min(10, m+1)))
-        self.req_var.set(" ".join(map(str, reqs)))
+        self.req_var.set(" ".join(map(str, sorted(random.sample(range(0, m+1), min(8, m+1))))))
         self.head_var.set(str(random.randint(0, m)))
 
-    def _run(self):
+    def _start_simulation(self):
+        if self.is_running: return
         try:
             head = int(self.head_var.get())
             max_c = int(self.max_var.get())
             reqs = list(map(int, self.req_var.get().split()))
         except ValueError:
-            messagebox.showwarning("Error", "Invalid input."); return
+            messagebox.showwarning("Error", "Invalid input.")
+            return
+
+        self.is_running = True
+        self.run_btn.config(state="disabled", bg=BORDER, text="⏳ Seeking...")
+        threading.Thread(target=self._run_engine, args=(reqs, head, max_c), daemon=True).start()
+
+    def _run_engine(self, reqs, head, max_c):
         algo = self.algo_var.get()
         direction = self.dir_var.get()
-        order, total = self._schedule(reqs, head, max_c, algo, direction)
-        self._draw(order, head, max_c)
-        self.stats_label.config(text=f"  Total Head Movement: {total} cylinders\n"
-                                      f"  Requests Served    : {len(reqs)}")
-        self.order_label.config(text="Service Order: " + " → ".join(map(str, order)))
-
-    def _schedule(self, reqs, head, max_c, algo, direction):
-        if algo == "FCFS":
-            order = list(reqs)
+        
+        # Core Schedule Calculators
+        if algo == "FCFS": order = list(reqs)
         elif algo == "SSTF":
-            order = []; rem = list(reqs); cur = head
+            order, rem, cur = [], list(reqs), head
             while rem:
                 nxt = min(rem, key=lambda x: abs(x - cur))
                 order.append(nxt); rem.remove(nxt); cur = nxt
         elif algo in ("SCAN", "LOOK"):
-            left  = sorted([r for r in reqs if r < head], reverse=True)
-            right = sorted([r for r in reqs if r >= head])
-            if algo == "SCAN":
-                if direction == "right":
-                    order = right + [max_c] + left
-                else:
-                    order = left + [0] + right
-            else:  # LOOK
-                if direction == "right":
-                    order = right + left
-                else:
-                    order = left + right
+            left, right = sorted([r for r in reqs if r < head], reverse=True), sorted([r for r in reqs if r >= head])
+            if algo == "SCAN": order = (right + [max_c] + left) if direction == "right" else (left + [0] + right)
+            else: order = (right + left) if direction == "right" else (left + right)
         elif algo in ("C-SCAN", "C-LOOK"):
-            right = sorted([r for r in reqs if r >= head])
-            left  = sorted([r for r in reqs if r < head])
-            if algo == "C-SCAN":
-                order = right + [max_c, 0] + left
-            else:
-                order = right + left
-        else:
-            order = list(reqs)
+            right, left = sorted([r for r in reqs if r >= head]), sorted([r for r in reqs if r < head])
+            order = (right + [max_c, 0] + left) if algo == "C-SCAN" else (right + left)
+        else: order = list(reqs)
 
-        seq = [head] + [o for o in order if o in reqs or o in (0, max_c)]
-        total = sum(abs(seq[i+1] - seq[i]) for i in range(len(seq)-1))
-        serve_order = [o for o in order if o in reqs]
-        return serve_order, total
+        steps = [head] + order
+        total_movement = sum(abs(steps[i+1] - steps[i]) for i in range(len(steps)-1))
+        
+        # Incremental dynamic UI streaming plot loop
+        for idx in range(1, len(steps) + 1):
+            current_path = steps[:idx]
+            self.status_bar.config(text=f"Seeking Cylinder: {current_path[-1]} (Track Step {idx-1}/{len(steps)-1})", fg=WARN)
+            self._draw_graph(current_path, max_c, final_len=len(steps))
+            time.sleep(0.6)
 
-    def _draw(self, order, head, max_c):
+        self.is_running = False
+        self.run_btn.config(state="normal", bg=ACCENT, text="▶  Simulate")
+        self.status_bar.config(text="Head Scan Sequence Complete", fg=GREEN)
+        self.stats_label.config(text=f"  Total Head Movement: {total_movement} cylinders\n  Requests Served    : {len(reqs)}")
+        self.order_label.config(text="Service Order: " + " → ".join(map(str, [o for o in order if o in reqs])))
+
+    def _draw_graph(self, path, max_c, final_len):
         c = self.canvas; c.delete("all")
-        W = c.winfo_width() or 800; H = c.winfo_height() or 350
-        c.create_text(W//2, 18, text=f"Disk Scheduling  —  {self.algo_var.get()}",
-                      fill=TEXT, font=FONT_H3)
+        W, H = c.winfo_width() or 800, c.winfo_height() or 350
+        c.create_text(W//2, 18, text=f"Disk Head Seek Path Plot — {self.algo_var.get()}", fill=TEXT, font=FONT_H3)
 
         ml, mr, mt, mb = 80, 40, 50, 40
-        plot_w = W - ml - mr; plot_h = H - mt - mb
-        steps = [head] + order
-        n = len(steps)
-        x_step = plot_w / max(n - 1, 1)
+        plot_w, plot_h = W - ml - mr, H - mt - mb
+        x_step = plot_w / max(final_len - 1, 1)
 
         def cx(i): return ml + i * x_step
         def cy(val): return mt + plot_h - (val / max_c) * plot_h
 
-        # y-axis
         for tick in range(0, max_c+1, max(1, max_c//10)):
             y = cy(tick)
             c.create_line(ml-4, y, ml, y, fill=BORDER)
-            c.create_text(ml-8, y, text=str(tick), fill=SUBTEXT,
-                           font=FONT_TINY, anchor="e")
+            c.create_text(ml-8, y, text=str(tick), fill=SUBTEXT, font=FONT_TINY, anchor="e")
         c.create_line(ml, mt, ml, mt+plot_h, fill=BORDER, width=1)
-
-        # x-axis (step labels)
         c.create_line(ml, mt+plot_h, ml+plot_w, mt+plot_h, fill=BORDER, width=1)
-        for i in range(n):
-            lbl = "Start" if i == 0 else str(i)
-            c.create_text(cx(i), mt+plot_h+14, text=lbl, fill=SUBTEXT, font=FONT_TINY)
 
-        # path
-        for i in range(n-1):
-            x1, y1 = cx(i), cy(steps[i])
-            x2, y2 = cx(i+1), cy(steps[i+1])
-            c.create_line(x1, y1, x2, y2, fill=ACCENT, width=2, smooth=False)
+        for i in range(final_len):
+            c.create_text(cx(i), mt+plot_h+14, text="Start" if i == 0 else str(i), fill=SUBTEXT, font=FONT_TINY)
 
-        # dots
-        for i, val in enumerate(steps):
-            x, y = cx(i), cy(val)
-            col = WARN if i == 0 else ACCENT2
-            c.create_oval(x-5, y-5, x+5, y+5, fill=col, outline=BG, width=2)
-            c.create_text(x, y-14, text=str(val), fill=col, font=FONT_TINY)
+        for i in range(len(path)-1):
+            c.create_line(cx(i), cy(path[i]), cx(i+1), cy(path[i+1]), fill=ACCENT, width=2)
 
-        # y-axis label
-        c.create_text(14, mt + plot_h//2, text="Cylinder", fill=SUBTEXT,
-                       font=FONT_TINY, angle=90)
+        for i, val in enumerate(path):
+            col = WARN if i == 0 else (ACCENT2 if i == len(path)-1 else SUBTEXT)
+            c.create_oval(cx(i)-4, cy(val)-4, cx(i+4), cy(val)+4, fill=col, outline=BG, width=1)
+            c.create_text(cx(i), cy(val)-14, text=str(val), fill=col, font=FONT_TINY)
+        c.create_text(14, mt + plot_h//2, text="Cylinder ID", fill=SUBTEXT, font=FONT_TINY, angle=90)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  MAIN APPLICATION
+#  MAIN APPLICATION ENTRYPOINT
 # ═══════════════════════════════════════════════════════════════════════════
 
 class OSVisualizerApp(tk.Tk):
@@ -950,59 +877,39 @@ class OSVisualizerApp(tk.Tk):
     def _apply_theme(self):
         style = ttk.Style(self)
         style.theme_use("clam")
-        style.configure("TCombobox",
-                         fieldbackground=CARD, background=CARD,
-                         foreground=TEXT, selectbackground=ACCENT,
-                         selectforeground=TEXT, bordercolor=BORDER,
-                         arrowcolor=SUBTEXT, relief="flat")
-        style.map("TCombobox",
-                   fieldbackground=[("readonly", CARD)],
-                   foreground=[("readonly", TEXT)])
-        style.configure("Custom.TNotebook",
-                         background=BG, borderwidth=0, tabmargins=0)
-        style.configure("Custom.TNotebook.Tab",
-                         background=PANEL, foreground=SUBTEXT,
-                         padding=[16, 8], font=FONT_BODY, borderwidth=0)
-        style.map("Custom.TNotebook.Tab",
-                   background=[("selected", CARD)],
-                   foreground=[("selected", TEXT)])
+        style.configure("TCombobox", fieldbackground=CARD, background=CARD, foreground=TEXT,
+                        selectbackground=ACCENT, selectforeground=TEXT, bordercolor=BORDER, arrowcolor=SUBTEXT, relief="flat")
+        style.map("TCombobox", fieldbackground=[("readonly", CARD)], foreground=[("readonly", TEXT)])
+        style.configure("Custom.TNotebook", background=BG, borderwidth=0, tabmargins=0)
+        style.configure("Custom.TNotebook.Tab", background=PANEL, foreground=SUBTEXT, padding=[16, 8], font=FONT_BODY, borderwidth=0)
+        style.map("Custom.TNotebook.Tab", background=[("selected", CARD)], foreground=[("selected", TEXT)])
 
     def _build_ui(self):
-        # Header
         hdr = tk.Frame(self, bg=PANEL, height=52)
         hdr.pack(fill="x")
         hdr.pack_propagate(False)
-        tk.Label(hdr, text="⚙  OS Algorithm Visualizer",
-                 bg=PANEL, fg=TEXT, font=FONT_H1).pack(side="left", padx=20, pady=10)
-        tk.Label(hdr, text="CPU · Memory · Virtual Memory · Mass Storage",
-                 bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(side="left", padx=4)
+        tk.Label(hdr, text="⚙  OS Algorithm Visualizer", bg=PANEL, fg=TEXT, font=FONT_H1).pack(side="left", padx=20, pady=10)
+        tk.Label(hdr, text="CPU · Memory · Virtual Memory · Mass Storage", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(side="left", padx=4)
 
-        # Notebook
         nb = ttk.Notebook(self, style="Custom.TNotebook")
         nb.pack(fill="both", expand=True, padx=0, pady=0)
 
         tabs = [
             ("🖥  CPU Scheduling",   CPUSchedulingTab),
             ("🗃  Memory Allocation", MemoryAllocationTab),
-            ("📄  Virtual Memory",   VirtualMemoryTab),
-            ("💽  Disk Scheduling",  MassStorageTab),
+            ("📄  Virtual Memory",    VirtualMemoryTab),
+            ("💽  Disk Scheduling",   MassStorageTab),
         ]
         for name, cls in tabs:
-            frame = cls(nb)
-            nb.add(frame, text=name)
+            nb.add(cls(nb), text=name)
 
-        # Status bar
         status = tk.Frame(self, bg=PANEL, height=24)
         status.pack(fill="x", side="bottom")
-        tk.Label(status,
-                 text="Select a tab, configure parameters, then click ▶ Run / Simulate",
-                 bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(side="left", padx=12)
-
+        tk.Label(status, text="Select a tab, configure parameters, then click ▶ Run / Simulate", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(side="left", padx=12)
 
 def main():
     app = OSVisualizerApp()
     app.mainloop()
-
 
 if __name__ == "__main__":
     main()
