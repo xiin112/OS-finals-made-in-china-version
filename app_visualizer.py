@@ -83,7 +83,7 @@ def entry_row(parent, label, default="", width=8):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  1 ─ CPU SCHEDULING
+#  1 ─ CPU SCHEDULING (ANIMATED DROPIN REPLACEMENT)
 # ═══════════════════════════════════════════════════════════════════════════
 
 class CPUSchedulingTab(tk.Frame):
@@ -91,6 +91,7 @@ class CPUSchedulingTab(tk.Frame):
 
     def __init__(self, parent):
         super().__init__(parent, bg=BG)
+        self.is_running = False
         self._build_ui()
 
     def _build_ui(self):
@@ -105,36 +106,31 @@ class CPUSchedulingTab(tk.Frame):
         # Algorithm picker
         tk.Label(ctrl, text="Algorithm", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.algo_var = tk.StringVar(value=self.ALGOS[0])
-        cb = ttk.Combobox(ctrl, textvariable=self.algo_var, values=self.ALGOS,
-                          state="readonly", font=FONT_BODY)
+        cb = ttk.Combobox(ctrl, textvariable=self.algo_var, values=self.ALGOS, state="readonly", font=FONT_BODY)
         cb.pack(fill="x", padx=PAD, pady=(2, PAD))
         cb.bind("<<ComboboxSelected>>", self._on_algo_change)
 
         # RR quantum
         self.rr_frame = tk.Frame(ctrl, bg=PANEL)
         self.rr_frame.pack(fill="x", padx=PAD)
-        tk.Label(self.rr_frame, text="Time Quantum", bg=PANEL, fg=SUBTEXT,
-                 font=FONT_TINY).pack(anchor="w")
+        tk.Label(self.rr_frame, text="Time Quantum", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w")
         self.quantum_var = tk.StringVar(value="2")
         tk.Entry(self.rr_frame, textvariable=self.quantum_var, width=6,
-                 bg=CARD, fg=TEXT, insertbackground=TEXT,
-                 relief="flat", font=FONT_MONO,
+                 bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", font=FONT_MONO,
                  highlightthickness=1, highlightbackground=BORDER).pack(anchor="w", pady=2)
         self.rr_frame.pack_forget()
 
         # Process table header
-        tk.Label(ctrl, text="Processes", bg=PANEL, fg=SUBTEXT,
-                 font=FONT_TINY).pack(anchor="w", padx=PAD, pady=(PAD, 0))
+        tk.Label(ctrl, text="Processes", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD, pady=(PAD, 0))
         hdr = tk.Frame(ctrl, bg=PANEL)
         hdr.pack(fill="x", padx=PAD)
         for h, w in [("PID", 4), ("Arrival", 6), ("Burst", 5), ("Priority", 7)]:
-            tk.Label(hdr, text=h, bg=PANEL, fg=SUBTEXT,
-                     font=FONT_TINY, width=w).pack(side="left")
+            tk.Label(hdr, text=h, bg=PANEL, fg=SUBTEXT, font=FONT_TINY, width=w).pack(side="left")
 
         self.proc_rows = []
         self.row_container = tk.Frame(ctrl, bg=PANEL)
         self.row_container.pack(fill="x", padx=PAD)
-        for i in range(6):
+        for i in range(5):  # Adjusted slightly for clean layout space
             self._add_row(i)
 
         btn_f = tk.Frame(ctrl, bg=PANEL)
@@ -142,20 +138,21 @@ class CPUSchedulingTab(tk.Frame):
         styled_button(btn_f, "+ Row", self._add_process, ACCENT2).pack(side="left", padx=2)
         styled_button(btn_f, "Random", self._randomize, WARN).pack(side="left", padx=2)
 
-        styled_button(ctrl, "▶  Run Simulation", self._run, ACCENT).pack(
-            fill="x", padx=PAD, pady=(0, PAD))
+        self.run_btn = styled_button(ctrl, "▶  Run Animation", self._start_simulation, ACCENT)
+        self.run_btn.pack(fill="x", padx=PAD, pady=(0, PAD))
 
         # Results area
-        self.stats_label = tk.Label(ctrl, text="", bg=PANEL, fg=ACCENT2,
-                                     font=FONT_TINY, justify="left", wraplength=230)
+        self.stats_label = tk.Label(ctrl, text="", bg=PANEL, fg=ACCENT2, font=FONT_TINY, justify="left", wraplength=230)
         self.stats_label.pack(anchor="w", padx=PAD)
 
-        # ── Right canvas ──
+        # ── Right Canvas Frame ──
         right = tk.Frame(self, bg=BG)
         right.pack(side="left", fill="both", expand=True, padx=(4, PAD), pady=PAD)
 
-        tk.Label(right, text="Gantt Chart", bg=BG, fg=SUBTEXT,
-                 font=FONT_TINY).pack(anchor="w")
+        # Live Status bar right above Canvas
+        self.status_bar = tk.Label(right, text="System Idle", bg=PANEL, fg=SUBTEXT, font=FONT_BODY, anchor="w", padx=10, pady=4)
+        self.status_bar.pack(fill="x", pady=(0, 4))
+
         self.canvas = tk.Canvas(right, bg=CARD, bd=0, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
 
@@ -163,8 +160,8 @@ class CPUSchedulingTab(tk.Frame):
         f = tk.Frame(self.row_container, bg=PANEL)
         f.pack(fill="x", pady=1)
         pid_var = tk.StringVar(value=f"P{pid+1}")
-        arr_var = tk.StringVar(value=str(pid))
-        burst_var = tk.StringVar(value=str(random.randint(2, 8)))
+        arr_var = tk.StringVar(value=str(pid if pid < 3 else random.randint(0,4)))
+        burst_var = tk.StringVar(value=str(random.randint(2, 6)))
         prio_var = tk.StringVar(value=str(random.randint(1, 5)))
         for var, w in [(pid_var, 4), (arr_var, 6), (burst_var, 5), (prio_var, 7)]:
             tk.Entry(f, textvariable=var, width=w, bg=CARD, fg=TEXT,
@@ -173,15 +170,13 @@ class CPUSchedulingTab(tk.Frame):
         self.proc_rows.append((pid_var, arr_var, burst_var, prio_var))
 
     def _add_process(self):
-        pid = len(self.proc_rows)
-        self._add_row(pid)
+        self._add_row(len(self.proc_rows))
 
     def _randomize(self):
         for pid_v, arr_v, burst_v, prio_v in self.proc_rows:
-            pid_idx = self.proc_rows.index((pid_v, arr_v, burst_v, prio_v))
             arr_v.set(str(random.randint(0, 5)))
-            burst_v.set(str(random.randint(1, 10)))
-            prio_v.set(str(random.randint(1, 6)))
+            burst_v.set(str(random.randint(1, 8)))
+            prio_v.set(str(random.randint(1, 5)))
 
     def _on_algo_change(self, *_):
         if "Round Robin" in self.algo_var.get():
@@ -203,166 +198,91 @@ class CPUSchedulingTab(tk.Frame):
                 continue
         return procs
 
-    def _run(self):
+    COLORS = ["#7c6af7", "#38c9b0", "#f7c26a", "#f76a6a", "#6af7a1", "#f7a26a", "#a26af7", "#6ab8f7"]
+
+    def _start_simulation(self):
+        if self.is_running:
+            return
         procs = self._get_processes()
         if not procs:
             messagebox.showwarning("No Data", "Add at least one process.")
             return
+
+        self.is_running = True
+        self.run_btn.config(state="disabled", bg=BORDER, text="⏳ Running...")
+        
+        # Calculate maximum possible runtime scale bound
+        total_burst = sum(p["burst"] for p in procs)
+        max_arrival = max(p["arrival"] for p in procs)
+        self.max_time_bound = max_arrival + total_burst + 5 
+
+        # Fire off animation onto its own thread to keep UI unfrozen
+        threading.Thread(target=self._run_engine, args=(procs,), daemon=True).start()
+
+    def _run_engine(self, procs):
         algo = self.algo_var.get()
+        timeline = []
+        stats = []
+
         if algo == "FCFS":
-            timeline, stats = self._fcfs(procs)
+            self._animate_fcfs(procs, timeline, stats)
         elif "SJF" in algo:
-            timeline, stats = self._sjf(procs)
+            self._animate_sjf(procs, timeline, stats)
         elif "Priority" in algo:
-            timeline, stats = self._priority(procs)
+            self._animate_priority(procs, timeline, stats)
         else:
-            try:
-                q = int(self.quantum_var.get())
-            except ValueError:
-                q = 2
-            timeline, stats = self._round_robin(procs, q)
-        self._draw_gantt(timeline)
+            try: q = int(self.quantum_var.get())
+            except ValueError: q = 2
+            self._animate_rr(procs, q, timeline, stats)
+
+        # Re-enable execute triggers
+        self.is_running = False
+        self.run_btn.config(state="normal", bg=ACCENT, text="▶  Run Animation")
+        self.status_bar.config(text="Simulation Complete", fg=GREEN)
         self._show_stats(stats)
 
-    # ── Algorithms ──────────────────────────────────────────────────────────
-    def _fcfs(self, procs):
+    # ── Animated Step Engines ───────────────────────────────────────────────
+    
+    def _animate_fcfs(self, procs, timeline, stats):
         procs = sorted(procs, key=lambda p: p["arrival"])
-        t = 0; timeline = []; stats = []
+        t = 0
         for p in procs:
-            t = max(t, p["arrival"])
-            start = t; t += p["burst"]
-            timeline.append((p["pid"], start, t))
-            stats.append({"pid": p["pid"], "wait": start - p["arrival"],
-                           "turnaround": t - p["arrival"]})
-        return timeline, stats
+            while t < p["arrival"]:
+                self._ui_tick(timeline, t, ready_queue=[])
+                t += 1
+            start = t
+            for _ in range(p["burst"]):
+                t += 1
+                timeline.append((p["pid"], start, t))
+                self._ui_tick(timeline, t, active_pid=p["pid"])
+            
+            stats.append({"pid": p["pid"], "wait": start - p["arrival"], "turnaround": t - p["arrival"]})
 
-    def _sjf(self, procs):
-        procs = sorted(procs, key=lambda p: (p["arrival"], p["burst"]))
-        remaining = list(deepcopy(procs)); t = 0; timeline = []; stats = []
+    def _animate_sjf(self, procs, timeline, stats):
+        remaining = list(deepcopy(procs))
+        t = 0
         while remaining:
             available = [p for p in remaining if p["arrival"] <= t]
+            ready_pids = [p["pid"] for p in available]
+            
             if not available:
-                t = remaining[0]["arrival"]; continue
+                self._ui_tick(timeline, t, ready_queue=[])
+                t += 1
+                continue
+                
             p = min(available, key=lambda x: x["burst"])
-            start = t; t += p["burst"]
-            timeline.append((p["pid"], start, t))
-            stats.append({"pid": p["pid"], "wait": start - p["arrival"],
-                           "turnaround": t - p["arrival"]})
-            remaining.remove(p)
-        return timeline, stats
-
-    def _priority(self, procs):
-        remaining = list(deepcopy(procs)); t = 0; timeline = []; stats = []
-        while remaining:
-            available = [p for p in remaining if p["arrival"] <= t]
-            if not available:
-                t = min(p["arrival"] for p in remaining); continue
-            p = min(available, key=lambda x: x["priority"])
-            start = t; t += p["burst"]
-            timeline.append((p["pid"], start, t))
-            stats.append({"pid": p["pid"], "wait": start - p["arrival"],
-                           "turnaround": t - p["arrival"]})
-            remaining.remove(p)
-        return timeline, stats
-
-    def _round_robin(self, procs, quantum):
-        queue = deque()
-        remaining = {p["pid"]: p["burst"] for p in procs}
-        arrival = {p["pid"]: p["arrival"] for p in procs}
-        arrived_at = {p["pid"]: p["arrival"] for p in procs}
-        order = sorted(procs, key=lambda p: p["arrival"])
-        added = set(); t = 0; timeline = []; finish = {}
-        ready = deque()
-        proc_list = list(order)
-        idx = 0
-        # seed first arrivals
-        while idx < len(proc_list) and proc_list[idx]["arrival"] <= t:
-            ready.append(proc_list[idx]["pid"]); added.add(proc_list[idx]["pid"]); idx += 1
-        while ready or idx < len(proc_list):
-            if not ready:
-                t = proc_list[idx]["arrival"]
-                while idx < len(proc_list) and proc_list[idx]["arrival"] <= t:
-                    ready.append(proc_list[idx]["pid"]); added.add(proc_list[idx]["pid"]); idx += 1
-            pid = ready.popleft()
-            run = min(quantum, remaining[pid])
-            timeline.append((pid, t, t + run))
-            t += run; remaining[pid] -= run
-            # enqueue newly arrived
-            while idx < len(proc_list) and proc_list[idx]["arrival"] <= t:
-                ready.append(proc_list[idx]["pid"]); added.add(proc_list[idx]["pid"]); idx += 1
-            if remaining[pid] > 0:
-                ready.append(pid)
-            else:
-                finish[pid] = t
-        stats = [{"pid": p["pid"],
-                   "wait": finish[p["pid"]] - p["arrival"] - p["burst"],
-                   "turnaround": finish[p["pid"]] - p["arrival"]}
-                 for p in procs if p["pid"] in finish]
-        return timeline, stats
-
-    # ── Drawing ──────────────────────────────────────────────────────────────
-    COLORS = ["#7c6af7","#38c9b0","#f7c26a","#f76a6a","#6af7a1","#f7a26a","#a26af7","#6ab8f7"]
-
-    def _draw_gantt(self, timeline):
-        c = self.canvas; c.delete("all")
-        if not timeline: return
-        W = c.winfo_width() or 800; H = c.winfo_height() or 300
-        margin_l, margin_r, margin_top = 60, 20, 60
-        bar_h = 44; bar_y = margin_top + 30
-        total_t = timeline[-1][2]
-        if total_t == 0: return
-        scale = (W - margin_l - margin_r) / total_t
-        pids = list(dict.fromkeys(p for p, _, _ in timeline))
-        pid_color = {p: self.COLORS[i % len(self.COLORS)] for i, p in enumerate(pids)}
-
-        # Title
-        c.create_text(W//2, 18, text="Gantt Chart  —  " + self.algo_var.get(),
-                      fill=TEXT, font=FONT_H3, anchor="center")
-        # Axis line
-        ax_y = bar_y + bar_h + 2
-        c.create_line(margin_l, ax_y, W - margin_r, ax_y, fill=BORDER, width=1)
-
-        drawn_labels = set()
-        for pid, start, end in timeline:
-            x0 = margin_l + start * scale
-            x1 = margin_l + end * scale
-            color = pid_color[pid]
-            # bar
-            c.create_rectangle(x0, bar_y, x1, bar_y + bar_h,
-                                fill=color, outline=BG, width=2)
-            # label
-            if x1 - x0 > 18:
-                c.create_text((x0+x1)//2, bar_y + bar_h//2,
-                               text=pid, fill=BG, font=("Segoe UI", 9, "bold"))
-            # tick + time
-            c.create_line(x0, ax_y, x0, ax_y + 6, fill=SUBTEXT)
-            if start not in drawn_labels:
-                c.create_text(x0, ax_y + 16, text=str(start),
-                               fill=SUBTEXT, font=FONT_TINY)
-                drawn_labels.add(start)
-        # last tick
-        xf = margin_l + total_t * scale
-        c.create_line(xf, ax_y, xf, ax_y + 6, fill=SUBTEXT)
-        c.create_text(xf, ax_y + 16, text=str(total_t),
-                       fill=SUBTEXT, font=FONT_TINY)
-
-        # Legend
-        lx = margin_l; ly = bar_y + bar_h + 40
-        for pid, col in pid_color.items():
-            c.create_rectangle(lx, ly, lx+12, ly+12, fill=col, outline="")
-            c.create_text(lx+16, ly+6, text=pid, fill=TEXT,
-                           font=FONT_TINY, anchor="w")
-            lx += 50
-
-    def _show_stats(self, stats):
-        if not stats: return
-        avg_w = sum(s["wait"] for s in stats) / len(stats)
-        avg_t = sum(s["turnaround"] for s in stats) / len(stats)
-        lines = ["  PID   Wait   Turnaround"]
-        for s in stats:
-            lines.append(f"  {s['pid']:<6} {s['wait']:<7} {s['turnaround']}")
-        lines.append(f"\n  Avg Wait: {avg_w:.2f}   Avg Turnaround: {avg_t:.2f}")
-        self.stats_label.config(text="\n".join(lines))
+            ready_pids.remove(p["pid"])
+            start = t
+            
+            for _ in range(p["burst"]):
+                t += 1
+                timeline.append((p["pid"], start, t))
+                # Peek at incoming elements while processing
+                current_ready = ready_pids + [r["pid"] for r in remaining if r["arrival"] <= t and r not in available]
+                self._ui_tick(timeline, t, active_pid=p["pid"], ready_queue=current_ready)
+                
+            stats.append({"pid": p["pid"], "wait": start - p["arrival"], "turnaround": t - p["arrival"]})
+            remaining.
 
 
 # ═══════════════════════════════════════════════════════════════════════════
