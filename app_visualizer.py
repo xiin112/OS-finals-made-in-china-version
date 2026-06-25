@@ -83,7 +83,7 @@ def entry_row(parent, label, default="", width=8):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  1 ─ CPU SCHEDULING (ANIMATED DROPIN REPLACEMENT)
+#  1 ─ CPU SCHEDULING                            
 # ═══════════════════════════════════════════════════════════════════════════
 
 class CPUSchedulingTab(tk.Frame):
@@ -286,7 +286,7 @@ class CPUSchedulingTab(tk.Frame):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  2 ─ MEMORY ALLOCATION (ANIMATED DROPIN REPLACEMENT)
+#  2 ─ MEMORY ALLOCATION                            
 # ═══════════════════════════════════════════════════════════════════════════
 
 class MemoryAllocationTab(tk.Frame):
@@ -520,7 +520,7 @@ class MemoryAllocationTab(tk.Frame):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  3 ─ VIRTUAL MEMORY / PAGE REPLACEMENT
+#  3 ─ VIRTUAL MEMORY (ANIMATED DROPIN REPLACEMENT)
 # ═══════════════════════════════════════════════════════════════════════════
 
 class VirtualMemoryTab(tk.Frame):
@@ -528,6 +528,7 @@ class VirtualMemoryTab(tk.Frame):
 
     def __init__(self, parent):
         super().__init__(parent, bg=BG)
+        self.is_running = False
         self._build_ui()
 
     def _build_ui(self):
@@ -559,54 +560,80 @@ class VirtualMemoryTab(tk.Frame):
                  fill="x", padx=PAD, pady=(2, PAD))
 
         styled_button(ctrl, "Random String", self._randomize, WARN).pack(anchor="w", padx=PAD, pady=2)
-        styled_button(ctrl, "▶  Simulate", self._run, ACCENT).pack(
-            fill="x", padx=PAD, pady=(PAD, 0))
+        self.run_btn = styled_button(ctrl, "▶  Simulate", self._start_simulation, ACCENT)
+        self.run_btn.pack(fill="x", padx=PAD, pady=(PAD, 0))
 
-        self.stats_label = tk.Label(ctrl, text="", bg=PANEL, fg=ACCENT2,
-                                     font=FONT_TINY, justify="left")
+        self.stats_label = tk.Label(ctrl, text="", bg=PANEL, fg=ACCENT2, font=FONT_TINY, justify="left")
         self.stats_label.pack(anchor="w", padx=PAD, pady=PAD)
 
         # Step-through log
         tk.Label(ctrl, text="Step Log", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.log_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=("Consolas", 8),
-                                 height=14, relief="flat", state="disabled",
-                                 highlightthickness=0)
+                                 height=14, relief="flat", state="disabled", highlightthickness=0)
         self.log_text.pack(fill="both", expand=True, padx=PAD, pady=(2, PAD))
 
         right = tk.Frame(self, bg=BG)
         right.pack(side="left", fill="both", expand=True, padx=(4, PAD), pady=PAD)
-        tk.Label(right, text="Page Frame State", bg=BG, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w")
+        
+        self.status_bar = tk.Label(right, text="System Idle", bg=PANEL, fg=SUBTEXT, font=FONT_BODY, anchor="w", padx=10, pady=4)
+        self.status_bar.pack(fill="x", pady=(0, 4))
+        
         self.canvas = tk.Canvas(right, bg=CARD, bd=0, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
 
     def _randomize(self):
-        pages = [str(random.randint(0, 7)) for _ in range(20)]
+        pages = [str(random.randint(0, 7)) for _ in range(15)] # Kept around 15 for optimal visual scaling
         self.ref_var.set(" ".join(pages))
 
-    def _run(self):
+    def _start_simulation(self):
+        if self.is_running: return
         try:
             refs = list(map(int, self.ref_var.get().split()))
             frames = int(self.frames_var.get())
         except ValueError:
-            messagebox.showwarning("Error", "Invalid input."); return
-        algo = self.algo_var.get()
-        if algo == "FIFO":
-            history, faults = self._fifo(refs, frames)
-        elif algo == "LRU":
-            history, faults = self._lru(refs, frames)
-        else:
-            history, faults = self._optimal(refs, frames)
-        self._draw(refs, history, faults, frames)
-        hits = len(refs) - len([f for f in faults if f])
-        self.stats_label.config(
-            text=f"  Page Faults : {sum(faults)}\n"
-                 f"  Page Hits   : {len(refs)-sum(faults)}\n"
-                 f"  Hit Rate    : {(len(refs)-sum(faults))/len(refs)*100:.1f}%")
-        self._show_log(refs, history, faults)
+            messagebox.showwarning("Error", "Invalid input.")
+            return
 
-    def _fifo(self, refs, n):
-        queue = deque(); frames = []; history = []; faults = []
-        for p in refs:
+        if not refs or frames <= 0:
+            messagebox.showwarning("Error", "Provide a valid reference string and frame count > 0.")
+            return
+
+        self.is_running = True
+        self.run_btn.config(state="disabled", bg=BORDER, text="⏳ Simulating...")
+        self.log_lines = []
+        
+        threading.Thread(target=self._run_engine, args=(refs, frames), daemon=True).start()
+
+    def _run_engine(self, refs, frames):
+        algo = self.algo_var.get()
+        history = []
+        faults = []
+
+        if algo == "FIFO":
+            self._animate_fifo(refs, frames, history, faults)
+        elif algo == "LRU":
+            self._animate_lru(refs, frames, history, faults)
+        else:
+            self._animate_optimal(refs, frames, history, faults)
+
+        self.is_running = False
+        self.run_btn.config(state="normal", bg=ACCENT, text="▶  Simulate")
+        self.status_bar.config(text="Simulation Complete", fg=GREEN)
+        
+        # Calculate terminal metrics
+        total_faults = sum(faults)
+        total_refs = len(refs)
+        self.stats_label.config(
+            text=f"  Page Faults : {total_faults}\n"
+                 f"  Page Hits   : {total_refs - total_faults}\n"
+                 f"  Hit Rate    : {((total_refs - total_faults) / total_refs) * 100:.1f}%"
+        )
+
+    # ── Stepped Core Engines ────────────────────────────────────────────────
+    
+    def _animate_fifo(self, refs, n, history, faults):
+        queue = deque()
+        for idx, p in enumerate(refs):
             fault = p not in queue
             if fault:
                 if len(queue) == n:
@@ -614,11 +641,12 @@ class VirtualMemoryTab(tk.Frame):
                 queue.append(p)
             faults.append(fault)
             history.append(list(queue))
-        return history, faults
+            
+            self._ui_tick(refs[:idx+1], history, faults, n, current_step=idx)
 
-    def _lru(self, refs, n):
-        frames = OrderedDict(); history = []; faults = []
-        for p in refs:
+    def _animate_lru(self, refs, n, history, faults):
+        frames = OrderedDict()
+        for idx, p in enumerate(refs):
             fault = p not in frames
             if fault:
                 if len(frames) == n:
@@ -628,46 +656,79 @@ class VirtualMemoryTab(tk.Frame):
                 frames.move_to_end(p)
             faults.append(fault)
             history.append(list(frames.keys()))
-        return history, faults
+            
+            self._ui_tick(refs[:idx+1], history, faults, n, current_step=idx)
 
-    def _optimal(self, refs, n):
-        frames = []; history = []; faults = []
-        for i, p in enumerate(refs):
+    def _animate_optimal(self, refs, n, history, faults):
+        frames = []
+        for idx, p in enumerate(refs):
             fault = p not in frames
             if fault:
                 if len(frames) == n:
                     future = {}
                     for f in frames:
-                        try: future[f] = refs[i+1:].index(f)
+                        try: future[f] = refs[idx+1:].index(f)
                         except ValueError: future[f] = float('inf')
                     victim = max(future, key=future.get)
                     frames.remove(victim)
                 frames.append(p)
             faults.append(fault)
             history.append(list(frames))
-        return history, faults
+            
+            self._ui_tick(refs[:idx+1], history, faults, n, current_step=idx)
 
-    def _draw(self, refs, history, faults, n_frames):
-        c = self.canvas; c.delete("all")
-        W = c.winfo_width() or 800; H = c.winfo_height() or 350
-        c.create_text(W//2, 18, text=f"Page Replacement  —  {self.algo_var.get()}",
-                      fill=TEXT, font=FONT_H3)
+    # ── UI Sync Hooks ───────────────────────────────────────────────────────
+    
+    def _ui_tick(self, current_refs, history, faults, n_frames, current_step):
+        last_ref = current_refs[-1]
+        is_fault = faults[-1]
+        status = "FAULT (Eviction/Insertion)" if is_fault else "HIT (Page in memory)"
+        
+        self.status_bar.config(text=f"Step {current_step + 1} | Referencing Page: {last_ref} -> {status}",
+                               fg=DANGER if is_fault else GREEN)
+        
+        # Append to live step log
+        state_str = str(history[-1]).ljust(18)
+        self.log_lines.append(f"[{current_step+1:>2}] Ref: {last_ref} | Frames: {state_str} | {'❌ FAULT' if is_fault else '✅ HIT'}")
+        
+        self.log_text.config(state="normal")
+        self.log_text.delete("1.0", "end")
+        self.log_text.insert("end", "\n".join(self.log_lines))
+        self.log_text.see("end")
+        self.log_text.config(state="disabled")
+
+        self._draw_matrix(current_refs, history, faults, n_frames)
+        time.sleep(0.5)
+
+    def _draw_matrix(self, refs, history, faults, n_frames):
+        c = self.canvas
+        c.delete("all")
+        
+        W = c.winfo_width() or 800
+        H = c.winfo_height() or 350
+        c.create_text(W//2, 18, text=f"Page Replacement Grid Stream — {self.algo_var.get()}", fill=TEXT, font=FONT_H3)
 
         n = len(refs)
-        cell_w = max(28, min(48, (W - 80) // n))
+        cell_w = max(28, min(48, (W - 100) // max(len(self.ref_var.get().split()), n)))
         cell_h = 36
-        start_x = 40
+        start_x = 55
         frame_y_start = 50
 
         colors_map = {}
-        palette = [ACCENT, ACCENT2, WARN, DANGER, GREEN, "#f7a26a"]
+        palette = [ACCENT, ACCENT2, WARN, "#f7a26a", "#a26af7", "#6ab8f7"]
 
         for step, (ref, state, fault) in enumerate(zip(refs, history, faults)):
             x = start_x + step * cell_w
-            # reference label
-            c.create_text(x + cell_w//2, 36, text=str(ref),
-                           fill=WARN if fault else GREEN, font=("Consolas", 9, "bold"))
-            # frame cells
+            
+            # Highlight current step column boundary lightly
+            if step == n - 1:
+                c.create_rectangle(x, frame_y_start + 10, x + cell_w, frame_y_start + n_frames * (cell_h + 4) + 45, 
+                                   outline=BORDER, fill="")
+
+            # Draw reference string row headers dynamically 
+            c.create_text(x + cell_w//2, 38, text=str(ref), fill=DANGER if fault else GREEN, font=("Consolas", 10, "bold"))
+            
+            # Stack memory blocks inside execution slot bounds
             for fi in range(n_frames):
                 fy = frame_y_start + fi * (cell_h + 4) + 20
                 if fi < len(state):
@@ -675,36 +736,26 @@ class VirtualMemoryTab(tk.Frame):
                     if page not in colors_map:
                         colors_map[page] = palette[len(colors_map) % len(palette)]
                     fill = colors_map[page]
-                    c.create_rectangle(x+2, fy, x+cell_w-2, fy+cell_h,
-                                       fill=fill, outline=BG, width=1)
-                    c.create_text(x + cell_w//2, fy + cell_h//2,
-                                   text=str(page), fill=BG, font=("Consolas", 9, "bold"))
+                    
+                    c.create_rectangle(x+2, fy, x+cell_w-2, fy+cell_h, fill=fill, outline=BG, width=1)
+                    c.create_text(x + cell_w//2, fy + cell_h//2, text=str(page), fill=BG, font=("Consolas", 10, "bold"))
                 else:
-                    c.create_rectangle(x+2, fy, x+cell_w-2, fy+cell_h,
-                                       fill="#1e2133", outline=BORDER, width=1)
-            # fault marker
+                    c.create_rectangle(x+2, fy, x+cell_w-2, fy+cell_h, fill="#1e2133", outline=BORDER, width=1)
+            
+            # Print state evaluation triggers beneath slots
             fault_y = frame_y_start + n_frames * (cell_h + 4) + 30
             if fault:
-                c.create_text(x + cell_w//2, fault_y, text="F",
-                               fill=DANGER, font=("Consolas", 8, "bold"))
+                c.create_text(x + cell_w//2, fault_y, text="F", fill=DANGER, font=("Consolas", 9, "bold"))
+            else:
+                c.create_text(x + cell_w//2, fault_y, text="•", fill=GREEN, font=("Consolas", 12, "bold"))
 
-        # row labels
+        # Redraw persistent left vertical row mapping ticks
         for fi in range(n_frames):
             fy = frame_y_start + fi * (cell_h + 4) + 20 + cell_h//2
-            c.create_text(28, fy, text=f"F{fi+1}", fill=SUBTEXT, font=FONT_TINY)
+            c.create_text(32, fy, text=f"Slot {fi+1}", fill=SUBTEXT, font=FONT_TINY)
 
         fault_y = frame_y_start + n_frames * (cell_h + 4) + 30
-        c.create_text(28, fault_y, text="Flt", fill=DANGER, font=FONT_TINY)
-
-    def _show_log(self, refs, history, faults):
-        lines = []
-        for i, (r, h, f) in enumerate(zip(refs, history, faults)):
-            state = str(h).ljust(20)
-            lines.append(f"[{i+1:>2}] ref={r}  frames={state}  {'FAULT' if f else 'hit'}")
-        self.log_text.config(state="normal")
-        self.log_text.delete("1.0", "end")
-        self.log_text.insert("end", "\n".join(lines))
-        self.log_text.config(state="disabled")
+        c.create_text(32, fault_y, text="State", fill=SUBTEXT, font=FONT_TINY)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
