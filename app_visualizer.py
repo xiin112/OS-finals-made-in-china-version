@@ -14,7 +14,7 @@ import threading
 from collections import deque, OrderedDict
 from copy import deepcopy
 
-# ─── THEME ──────────────────────────────────────────────────────────────────
+#THEME
 BG        = "#fce4ec"
 PANEL     = "#f8bbd0"
 CARD      = "#fef5f8"
@@ -36,10 +36,7 @@ FONT_TINY = ("Segoe UI", 9)
 
 PAD = 10
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  UTILITY WIDGETS
-# ═══════════════════════════════════════════════════════════════════════════
+# UTILITY
 
 def styled_button(parent, text, command, color=ACCENT, **kwargs):
     btn = tk.Button(
@@ -66,10 +63,7 @@ def entry_row(parent, label, default="", width=8):
     e.pack(side="left")
     return f, v
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  1 ─ CPU SCHEDULING
-# ═══════════════════════════════════════════════════════════════════════════
+#  1 ─ CPU SCHEDULING------------------------------------------------------------------------------------------
 
 class CPUSchedulingTab(tk.Frame):
     ALGOS = ["FCFS", "SJF (Non-Preemptive)", "Priority (Non-Preemptive)", "Round Robin"]
@@ -382,9 +376,7 @@ class CPUSchedulingTab(tk.Frame):
         self.stats_text.config(state="disabled")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  2 ─ MEMORY ALLOCATION
-# ═══════════════════════════════════════════════════════════════════════════
+#  2 ─ MEMORY ALLOCATION---------------------------------------------------------------------------------------------------------
 
 class MemoryAllocationTab(tk.Frame):
     ALGOS = ["First Fit", "Best Fit", "Worst Fit", "Next Fit"]
@@ -580,9 +572,7 @@ class MemoryAllocationTab(tk.Frame):
         self.result_text.config(state="disabled")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  3 ─ VIRTUAL MEMORY
-# ═══════════════════════════════════════════════════════════════════════════
+#  3 ─ VIRTUAL MEMORY---------------------------------------------------------------------------------------
 
 class VirtualMemoryTab(tk.Frame):
     ALGOS = ["FIFO", "LRU", "MRU", "Optimal"]
@@ -771,9 +761,7 @@ class VirtualMemoryTab(tk.Frame):
         c.create_text(32, frame_y_start + n_frames * 40 + 30, text="State", fill=SUBTEXT, font=FONT_TINY)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  4 ─ MASS STORAGE (DISK SCHEDULING)
-# ═══════════════════════════════════════════════════════════════════════════
+#  4 ─ DISK SCHEDULING---------------------------------------------------------------------------
 
 class MassStorageTab(tk.Frame):
     ALGOS = ["FCFS", "SSTF", "SCAN", "C-SCAN", "LOOK", "C-LOOK"]
@@ -929,9 +917,7 @@ class MassStorageTab(tk.Frame):
         c.create_text(14, mt + plot_h//2, text="Cylinder ID", fill=SUBTEXT, font=FONT_TINY, angle=90)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  MAIN APPLICATION ENTRYPOINT
-# ═══════════════════════════════════════════════════════════════════════════
+#  MAIN APPLICATION---------------------------------------------------------------------------------------------------------------------
 
 class OSVisualizerApp(tk.Tk):
     def __init__(self):
