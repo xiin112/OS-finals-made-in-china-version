@@ -1048,3 +1048,30 @@ class OSVisualizerApp(tk.Tk):
         application_footer_panel = tk.Frame(self, bg=VisualAestheticConfig.DOCK_HEX, height=68)
         application_footer_panel.pack(fill="x", side="bottom")
         application_footer_panel.pack_propagate(False)
+
+        footer_navigation_subdeck = tk.Frame(application_footer_panel, bg=VisualAestheticConfig.DOCK_HEX)
+        footer_navigation_subdeck.pack(expand=True, pady=10)
+        for block_title, _ in self.structural_navigation_manifest:
+            navigation_button = ttk.Button(
+                footer_navigation_subdeck,
+                text=block_title,
+                style="Pink.TButton",
+                command=lambda tracking_token=block_title: self._route_active_view(tracking_token)
+            )
+            navigation_button.pack(side="left", padx=6)
+
+        tk.Frame(self, bg=VisualAestheticConfig.CANVAS_HEX, height=24).pack(fill="x", side="bottom")
+
+    def _route_active_view(self, target_token):
+        for block_title, component_frame in self.mapped_component_tabs.items():
+            component_frame.pack_forget()
+        self.mapped_component_tabs[target_token].pack(fill="both", expand=True)
+        self.active_module_token = target_token
+
+
+def main():
+    execution_environment_app = OSVisualizerApp()
+    execution_environment_app.mainloop()
+
+if __name__ == "__main__":
+    main()
