@@ -585,7 +585,7 @@ class MemoryAllocationTab(tk.Frame):
 # ═══════════════════════════════════════════════════════════════════════════
 
 class VirtualMemoryTab(tk.Frame):
-    ALGOS = ["FIFO", "LRU", "Optimal"]
+    ALGOS = ["FIFO", "LRU", "MRU", "Optimal"]
 
     def __init__(self, parent):
         super().__init__(parent, bg=BG)
@@ -656,6 +656,7 @@ class VirtualMemoryTab(tk.Frame):
 
         if algo == "FIFO": self._animate_fifo(refs, frames, history, faults)
         elif algo == "LRU": self._animate_lru(refs, frames, history, faults)
+        elif algo == "MRU": self._animate_mru(refs, frames, history, faults)
         else: self._animate_optimal(refs, frames, history, faults)
 
         self.is_running = False
@@ -699,6 +700,18 @@ class VirtualMemoryTab(tk.Frame):
             history.append(list(frames.keys()))
             self._ui_tick(refs[:idx+1], history, faults, n, current_step=idx)
 
+    def _animate_mru(self, refs, n, history, faults):
+        frames = OrderedDict()
+        for idx, p in enumerate(refs):
+            fault = p not in frames
+            if fault:
+                if len(frames) == n: frames.popitem(last=True)
+                frames[p] = True
+            else: frames.move_to_end(p)
+            faults.append(fault)
+            history.append(list(frames.keys()))
+            self._ui_tick(refs[:idx+1], history, faults, n, current_step=idx)
+
     def _animate_optimal(self, refs, n, history, faults):
         frames = []
         for idx, p in enumerate(refs):
@@ -725,7 +738,7 @@ class VirtualMemoryTab(tk.Frame):
         self.log_text.see("end")
         self.log_text.config(state="disabled")
         self._draw_matrix(current_refs, history, faults, n_frames)
-        time.sleep(0.5)
+        time.sleep(0.15)
 
     def _draw_matrix(self, refs, history, faults, n_frames):
         c = self.canvas; c.delete("all")
