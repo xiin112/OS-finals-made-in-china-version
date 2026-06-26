@@ -717,6 +717,8 @@ class VirtualMemoryTab(tk.Frame):
     def __init__(self, master_canvas):
         super().__init__(master_canvas, bg=VisualAestheticConfig.CANVAS_HEX)
         self.simulation_active = False
+        self.simulation_lock = threading.Lock()
+        self.buffered_log_lines = []
         self._initialize_layout()
 
     def _initialize_layout(self):
@@ -735,7 +737,7 @@ class VirtualMemoryTab(tk.Frame):
         tk.Entry(side_control_panel, textvariable=self.allocated_frames_state, width=6, bg=VisualAestheticConfig.SURFACE_HEX, fg=VisualAestheticConfig.BODY_HEX, insertbackground=VisualAestheticConfig.BODY_HEX, relief="flat", font=VisualAestheticConfig.MONOSPACE_MATRICES, highlightthickness=1, highlightbackground=VisualAestheticConfig.OUTLINE_HEX).pack(anchor="w", padx=VisualAestheticConfig.PADDING_UNIT, pady=(2, VisualAestheticConfig.PADDING_UNIT))
 
         tk.Label(side_control_panel, text="Reference String (space-separated)", bg=VisualAestheticConfig.DOCK_HEX, fg=VisualAestheticConfig.CAPTION_HEX, font=VisualAestheticConfig.COMPACT_MATRICES).pack(anchor="w", padx=VisualAestheticConfig.PADDING_UNIT)
-        self.reference_stream_state = tk.StringVar(value="7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1")
+        self.reference_stream_state = tk.StringVar(value="7 0 1 2 0 3 0 4 2 3")
         tk.Entry(side_control_panel, textvariable=self.reference_stream_state, bg=VisualAestheticConfig.SURFACE_HEX, fg=VisualAestheticConfig.BODY_HEX, insertbackground=VisualAestheticConfig.BODY_HEX, relief="flat", font=VisualAestheticConfig.MONOSPACE_MATRICES, highlightthickness=1, highlightbackground=VisualAestheticConfig.OUTLINE_HEX).pack(fill="x", padx=VisualAestheticConfig.PADDING_UNIT, pady=(2, VisualAestheticConfig.PADDING_UNIT))
 
         ElementFactory.craft_action_trigger(side_control_panel, "Random String", self._generate_random_reference_stream, VisualAestheticConfig.HIGHLIGHT_HEX).pack(anchor="w", padx=VisualAestheticConfig.PADDING_UNIT, pady=2)
@@ -761,40 +763,84 @@ class VirtualMemoryTab(tk.Frame):
         self.reference_stream_state.set(" ".join([str(random.randint(0, 7)) for _ in range(15)]))
 
     def _invoke_simulation(self):
-        if self.simulation_active: return
-        try:
-            parsed_stream = list(map(int, self.reference_stream_state.get().split()))
-            parsed_frame_limit = int(self.allocated_frames_state.get())
-        except ValueError:
-            messagebox.showwarning("Error", "Invalid input.")
-            return
-        if not parsed_stream or parsed_frame_limit <= 0:
-            messagebox.showwarning("Error", "Provide a valid reference string and frame count > 0.")
-            return
+        with self.simulation_lock:
+            if self.simulation_active:
+                return
+            try:
+                parsed_stream = list(map(int, self.reference_stream_state.get().split()))
+                parsed_frame_limit = int(self.allocated_frames_state.get())
+            except ValueError:
+                messagebox.showwarning("Error", "Invalid input.")
+                return
+            if not parsed_stream or parsed_frame_limit <= 0:
+                messagebox.showwarning("Error", "Provide a valid reference string and frame count > 0.")
+                return
 
-        self.simulation_active = True
-        self.execution_trigger_btn.config(state="disabled", bg=VisualAestheticConfig.OUTLINE_HEX, text="⏳ Simulating...")
-        self.buffered_log_lines = []
-        threading.Thread(target=self._core_calculation_thread, args=(parsed_stream, parsed_frame_limit), daemon=True).start()
+            # COMPLETELY CLEAR EVERYTHING
+            self.buffered_log_lines = []
+            
+            # Clear log
+            self.historical_execution_log.config(state="normal")
+            self.historical_execution_log.delete("1.0", "end")
+            self.historical_execution_log.config(state="disabled")
+            
+            # Clear grid
+            self.graphic_render_surface.delete("all")
+            
+            # Clear stats
+            self.telemetry_text_summary.config(state="normal")
+            self.telemetry_text_summary.delete("1.0", "end")
+            self.telemetry_text_summary.config(state="disabled")
+            
+            # Reset banner
+            self.telemetry_banner.config(text="Simulating...", fg=VisualAestheticConfig.BODY_HEX)
+            
+            self.simulation_active = True
+            self.execution_trigger_btn.config(state="disabled", bg=VisualAestheticConfig.OUTLINE_HEX, text="⏳ Simulating...")
+            
+            # Store the full stream for later use
+            self.current_stream = parsed_stream
+            self.current_frame_limit = parsed_frame_limit
+            
+            threading.Thread(target=self._core_calculation_thread, args=(parsed_stream, parsed_frame_limit), daemon=True).start()
 
     def _core_calculation_thread(self, stream, frame_cap):
-        selected_mode = self.selected_strategy.get()
-        state_history, logical_fault_log = [], []
+        try:
+            selected_mode = self.selected_strategy.get()
+            state_history, logical_fault_log = [], []
 
-        if selected_mode == "FIFO": self._simulate_fifo_logic(stream, frame_cap, state_history, logical_fault_log)
-        elif selected_mode == "LRU": self._simulate_lru_logic(stream, frame_cap, state_history, logical_fault_log)
-        elif selected_mode == "MRU": self._simulate_mru_logic(stream, frame_cap, state_history, logical_fault_log)
-        else: self._simulate_optimal_logic(stream, frame_cap, state_history, logical_fault_log)
+            if selected_mode == "FIFO": 
+                self._simulate_fifo_logic(stream, frame_cap, state_history, logical_fault_log)
+            elif selected_mode == "LRU": 
+                self._simulate_lru_logic(stream, frame_cap, state_history, logical_fault_log)
+            elif selected_mode == "MRU": 
+                self._simulate_mru_logic(stream, frame_cap, state_history, logical_fault_log)
+            else: 
+                self._simulate_optimal_logic(stream, frame_cap, state_history, logical_fault_log)
 
-        self.simulation_active = False
-        self.execution_trigger_btn.config(state="normal", bg=VisualAestheticConfig.PRIMARY_HEX, text="▶  Simulate")
-        self.telemetry_banner.config(text="Simulation Complete", fg=VisualAestheticConfig.SUCCESS_HEX)
+            # Update stats after simulation completes
+            self.after(0, lambda: self._update_statistics(stream, logical_fault_log))
+            
+        finally:
+            self.simulation_active = False
+            self.after(0, lambda: self.execution_trigger_btn.config(
+                state="normal", bg=VisualAestheticConfig.PRIMARY_HEX, text="▶  Simulate"
+            ))
+
+    def _update_statistics(self, stream, logical_fault_log):
         total_fault_count = sum(logical_fault_log)
-        computed_hit_percentage = ((len(stream) - total_fault_count) / len(stream)) * 100
+        total_hits = len(stream) - total_fault_count
+        computed_hit_percentage = (total_hits / len(stream)) * 100 if len(stream) > 0 else 0
         
-        stat_border_separator = ["─────────────────────────────────"]
+        self.telemetry_banner.config(
+            text=f"Simulation Complete | Faults: {total_fault_count} | Hits: {total_hits} | Hit Rate: {computed_hit_percentage:.1f}%",
+            fg=VisualAestheticConfig.SUCCESS_HEX
+        )
+        
+        stat_border_separator = []
+        stat_border_separator.append("─────────────────────────────────")
         stat_border_separator.append(f" Page Faults  : {total_fault_count:<18}   ")
-        stat_border_separator.append(f" Page Hits    : {len(stream)-total_fault_count:<18}")
+        stat_border_separator.append(f" Page Hits    : {total_hits:<18}")
         stat_border_separator.append(f" Hit Rate     : {computed_hit_percentage:>5.1f}%    ")
         stat_border_separator.append("────────────────────────────")
         
@@ -804,101 +850,275 @@ class VirtualMemoryTab(tk.Frame):
         self.telemetry_text_summary.config(state="disabled")
 
     def _simulate_fifo_logic(self, stream, limit, history, faults):
-        tracking_queue = deque()
-        for lookup_idx, current_page in enumerate(stream):
-            is_page_fault = current_page not in tracking_queue
-            if is_page_fault:
-                if len(tracking_queue) == limit: tracking_queue.popleft()
-                tracking_queue.append(current_page)
-            faults.append(is_page_fault)
-            history.append(list(tracking_queue))
-            self._execute_frame_refresh(stream[:lookup_idx+1], history, faults, limit, transactional_step=lookup_idx)
+            physical_frames = [None] * limit
+            tracking_queue = deque()  # Tracks chronological entry order
+
+            for lookup_idx, current_page in enumerate(stream):
+                is_page_fault = current_page not in physical_frames
+                
+                if is_page_fault:
+                    if len(tracking_queue) == limit:
+                        oldest_page = tracking_queue.popleft()
+                        # Replace the oldest page in its exact physical slot index
+                        replace_idx = physical_frames.index(oldest_page)
+                        physical_frames[replace_idx] = current_page
+                    else:
+                        # Fill the next empty slot
+                        replace_idx = physical_frames.index(None)
+                        physical_frames[replace_idx] = current_page
+                    
+                    tracking_queue.append(current_page)
+
+                faults.append(is_page_fault)
+                # Append a copy of physical_frames preserving slot positions
+                history.append([p for p in physical_frames if p is not None])
+                self._execute_frame_refresh(stream[: lookup_idx + 1], history, faults, limit, transactional_step=lookup_idx)
 
     def _simulate_lru_logic(self, stream, limit, history, faults):
-        tracking_ordered_map = OrderedDict()
+        physical_frames = [None] * limit
+        usage_history = []  # Tracks least recently used ordering
+
         for lookup_idx, current_page in enumerate(stream):
-            is_page_fault = current_page not in tracking_ordered_map
+            is_page_fault = current_page not in physical_frames
+            
             if is_page_fault:
-                if len(tracking_ordered_map) == limit: tracking_ordered_map.popitem(last=False)
-                tracking_ordered_map[current_page] = True
-            else: tracking_ordered_map.move_to_end(current_page)
+                if len(usage_history) == limit:
+                    lru_page = usage_history.pop(0)
+                    replace_idx = physical_frames.index(lru_page)
+                    physical_frames[replace_idx] = current_page
+                else:
+                    replace_idx = physical_frames.index(None)
+                    physical_frames[replace_idx] = current_page
+                usage_history.append(current_page)
+            else:
+                # Update usage recency: move to the end of the list
+                usage_history.remove(current_page)
+                usage_history.append(current_page)
+
             faults.append(is_page_fault)
-            history.append(list(tracking_ordered_map.keys()))
-            self._execute_frame_refresh(stream[:lookup_idx+1], history, faults, limit, transactional_step=lookup_idx)
+            history.append([p for p in physical_frames if p is not None])
+            self._execute_frame_refresh(stream[: lookup_idx + 1], history, faults, limit, transactional_step=lookup_idx)
 
     def _simulate_mru_logic(self, stream, limit, history, faults):
-        tracking_ordered_map = OrderedDict()
+        physical_frames = [None] * limit
+        usage_history = []  # Tracks most recently used ordering
+
         for lookup_idx, current_page in enumerate(stream):
-            is_page_fault = current_page not in tracking_ordered_map
+            is_page_fault = current_page not in physical_frames
+            
             if is_page_fault:
-                if len(tracking_ordered_map) == limit: tracking_ordered_map.popitem(last=True)
-                tracking_ordered_map[current_page] = True
-            else: tracking_ordered_map.move_to_end(current_page)
+                if len(usage_history) == limit:
+                    mru_page = usage_history.pop()  # Pop the most recent
+                    replace_idx = physical_frames.index(mru_page)
+                    physical_frames[replace_idx] = current_page
+                else:
+                    replace_idx = physical_frames.index(None)
+                    physical_frames[replace_idx] = current_page
+                usage_history.append(current_page)
+            else:
+                # Page hit makes this page the most recently used
+                usage_history.remove(current_page)
+                usage_history.append(current_page)
+
             faults.append(is_page_fault)
-            history.append(list(tracking_ordered_map.keys()))
-            self._execute_frame_refresh(stream[:lookup_idx+1], history, faults, limit, transactional_step=lookup_idx)
+            history.append([p for p in physical_frames if p is not None])
+            self._execute_frame_refresh(stream[: lookup_idx + 1], history, faults, limit, transactional_step=lookup_idx)
 
     def _simulate_optimal_logic(self, stream, limit, history, faults):
-        active_memory_frames = []
-        for lookup_idx, current_page in enumerate(stream):
-            is_page_fault = current_page not in active_memory_frames
-            if is_page_fault:
-                if len(active_memory_frames) == limit:
-                    future_usage_index_map = {}
-                    for allocated_page in active_memory_frames:
-                        try: future_usage_index_map[allocated_page] = stream[lookup_idx+1:].index(allocated_page)
-                        except ValueError: future_usage_index_map[allocated_page] = float('inf')
-                    active_memory_frames.remove(max(future_usage_index_map, key=future_usage_index_map.get))
-                active_memory_frames.append(current_page)
-            faults.append(is_page_fault)
-            history.append(list(active_memory_frames))
-            self._execute_frame_refresh(stream[:lookup_idx+1], history, faults, limit, transactional_step=lookup_idx)
+        physical_frames = [None] * limit
 
-    def _execute_frame_refresh(self, dynamic_substream, history, faults, limit, transactional_step):
-        last_accessed_page, computational_fault_occurred = dynamic_substream[-1], faults[-1]
-        self.telemetry_banner.config(text=f"Step {transactional_step + 1} | Referencing Page: {last_accessed_page} -> {'FAULT' if computational_fault_occurred else 'HIT'}", fg=VisualAestheticConfig.CRITICAL_HEX if computational_fault_occurred else VisualAestheticConfig.SUCCESS_HEX)
-        self.buffered_log_lines.append(f"[{transactional_step+1:>2}] Ref: {last_accessed_page} | Frames: {str(history[-1]).ljust(18)} | {'❌ FAULT' if computational_fault_occurred else '✅ HIT'}")
+        for lookup_idx, current_page in enumerate(stream):
+            is_page_fault = current_page not in physical_frames
+            
+            if is_page_fault:
+                if None not in physical_frames:
+                    future_usage_index_map = {}
+                    for allocated_page in physical_frames:
+                        try:
+                            future_usage_index_map[allocated_page] = stream[lookup_idx + 1 :].index(allocated_page)
+                        except ValueError:
+                            future_usage_index_map[allocated_page] = float("inf")
+                    
+                    page_to_evict = max(future_usage_index_map, key=future_usage_index_map.get)
+                    replace_idx = physical_frames.index(page_to_evict)
+                    physical_frames[replace_idx] = current_page
+                else:
+                    replace_idx = physical_frames.index(None)
+                    physical_frames[replace_idx] = current_page
+
+            faults.append(is_page_fault)
+            history.append([p for p in physical_frames if p is not None])
+            self._execute_frame_refresh(stream[: lookup_idx + 1], history, faults, limit, transactional_step=lookup_idx)
+            
+    def _execute_frame_refresh(self, full_stream, history, faults, limit, transactional_step):
+        last_accessed_page = full_stream[transactional_step]
+        computational_fault_occurred = faults[transactional_step]
+        
+        # Update banner
+        self.after(0, lambda: self.telemetry_banner.config(
+            text=f"Step {transactional_step + 1} | Referencing Page: {last_accessed_page} -> {'FAULT' if computational_fault_occurred else 'HIT'}",
+            fg=VisualAestheticConfig.CRITICAL_HEX if computational_fault_occurred else VisualAestheticConfig.SUCCESS_HEX
+        ))
+        
+        # Update log
+        self.buffered_log_lines.append(
+            f"[{transactional_step+1:>2}] Ref: {last_accessed_page} | Frames: {str(history[transactional_step]).ljust(18)} | {'❌ FAULT' if computational_fault_occurred else '✅ HIT'}"
+        )
+        self.after(0, lambda: self._update_log())
+        
+        # Render grid - PASS THE FULL STREAM AND ALL HISTORY
+        self.after(0, lambda: self._render_matrix_grid(full_stream, history, faults, limit))
+        time.sleep(0.15)
+
+    def _update_log(self):
         self.historical_execution_log.config(state="normal")
         self.historical_execution_log.delete("1.0", "end")
         self.historical_execution_log.insert("end", "\n".join(self.buffered_log_lines))
         self.historical_execution_log.see("end")
         self.historical_execution_log.config(state="disabled")
-        self._render_matrix_grid(dynamic_substream, history, faults, limit)
-        time.sleep(0.15)
 
     def _render_matrix_grid(self, stream, history, faults, frame_cap):
-        surface = self.graphic_render_surface; surface.delete("all")
-        surface_width, surface_height = surface.winfo_width() or 800, surface.winfo_height() or 350
-        surface.create_text(surface_width//2, 18, text=f"Page Replacement Grid Stream — {self.selected_strategy.get()}", fill=VisualAestheticConfig.BODY_HEX, font=VisualAestheticConfig.SUBHEADER_MATRICES)
-        grid_cell_width = max(28, min(48, (surface_width - 100) // max(len(self.reference_stream_state.get().split()), len(stream))))
-        initial_x_offset, grid_y_origin = 55, 50
-        color_palette_pool = [VisualAestheticConfig.PRIMARY_HEX, VisualAestheticConfig.MUTED_HEX, VisualAestheticConfig.HIGHLIGHT_HEX, "#f7a26a", "#a26af7", "#6ab8f7"]
+        surface = self.graphic_render_surface
+        surface.delete("all")
+        
+        # Get actual dimensions
+        surface_width = surface.winfo_width()
+        surface_height = surface.winfo_height()
+        
+        # Fallback dimensions if not properly initialized
+        if surface_width <= 1:
+            surface_width = 800
+        if surface_height <= 1:
+            surface_height = 350
+            
+        # Title
+        surface.create_text(
+            surface_width//2, 18, 
+            text=f"Page Replacement Grid Stream — {self.selected_strategy.get()}",
+            fill=VisualAestheticConfig.BODY_HEX, 
+            font=VisualAestheticConfig.SUBHEADER_MATRICES
+        )
+        
+        # Calculate cell width based on ACTUAL number of steps
+        num_steps = len(stream)
+        
+        # CRITICAL FIX: Trim history and faults to match stream length
+        if len(history) > num_steps:
+            history = history[:num_steps]
+        if len(faults) > num_steps:
+            faults = faults[:num_steps]
+        
+        max_cell_width = 48
+        min_cell_width = 28
+        
+        # Calculate available width for cells
+        available_width = surface_width - 100  # Leave margin for slot labels
+        grid_cell_width = max(min_cell_width, min(max_cell_width, available_width // max(1, num_steps)))
+        
+        # If too many steps, make cells smaller
+        if grid_cell_width < 20:
+            grid_cell_width = 20
+        
+        initial_x_offset = 55
+        grid_y_origin = 50
+        
+        # Color palette
+        color_palette_pool = [
+            VisualAestheticConfig.PRIMARY_HEX, 
+            VisualAestheticConfig.MUTED_HEX, 
+            VisualAestheticConfig.HIGHLIGHT_HEX, 
+            "#f7a26a", "#a26af7", "#6ab8f7"
+        ]
         page_color_assignment_map = {}
 
-        for current_step, (page_id, frame_snapshot, fault_registered) in enumerate(zip(stream, history, faults)):
-            calculated_x_pos = initial_x_offset + current_step * grid_cell_width
-            if current_step == len(stream) - 1:
-                surface.create_rectangle(calculated_x_pos, grid_y_origin + 10, calculated_x_pos + grid_cell_width, grid_y_origin + frame_cap * 40 + 45, outline=VisualAestheticConfig.OUTLINE_HEX, fill="")
-            surface.create_text(calculated_x_pos + grid_cell_width//2, 38, text=str(page_id), fill=VisualAestheticConfig.CRITICAL_HEX if fault_registered else VisualAestheticConfig.SUCCESS_HEX, font=("Consolas", 10, "bold"))
+        # Draw grid cells for ALL steps
+        for current_step in range(num_steps):
+            page_id = stream[current_step]
+            frame_snapshot = history[current_step] if current_step < len(history) else []
+            fault_registered = faults[current_step] if current_step < len(faults) else False
             
+            calculated_x_pos = initial_x_offset + current_step * grid_cell_width
+            
+            # Draw page number at top
+            surface.create_text(
+                calculated_x_pos + grid_cell_width//2, 38,
+                text=str(page_id),
+                fill=VisualAestheticConfig.CRITICAL_HEX if fault_registered else VisualAestheticConfig.SUCCESS_HEX,
+                font=("Consolas", 10, "bold")
+            )
+            
+            # Draw frames
             for slot_idx in range(frame_cap):
                 calculated_slot_y = grid_y_origin + slot_idx * 40 + 20
+                
                 if slot_idx < len(frame_snapshot):
                     current_mapped_page = frame_snapshot[slot_idx]
-                    if current_mapped_page not in page_color_assignment_map: 
-                        page_color_assignment_map[current_mapped_page] = color_palette_pool[len(page_color_assignment_map) % len(color_palette_pool)]
-                    surface.create_rectangle(calculated_x_pos+2, calculated_slot_y, calculated_x_pos+grid_cell_width-2, calculated_slot_y+36, fill=page_color_assignment_map[current_mapped_page], outline=VisualAestheticConfig.CANVAS_HEX, width=1)
-                    surface.create_text(calculated_x_pos + grid_cell_width//2, calculated_slot_y + 18, text=str(current_mapped_page), fill=VisualAestheticConfig.CANVAS_HEX, font=("Consolas", 10, "bold"))
+                    if current_mapped_page not in page_color_assignment_map:
+                        page_color_assignment_map[current_mapped_page] = color_palette_pool[
+                            len(page_color_assignment_map) % len(color_palette_pool)
+                        ]
+                    
+                    surface.create_rectangle(
+                        calculated_x_pos+2, calculated_slot_y,
+                        calculated_x_pos+grid_cell_width-2, calculated_slot_y+36,
+                        fill=page_color_assignment_map[current_mapped_page],
+                        outline=VisualAestheticConfig.OUTLINE_HEX,
+                        width=1
+                    )
+                    surface.create_text(
+                        calculated_x_pos + grid_cell_width//2, 
+                        calculated_slot_y + 18,
+                        text=str(current_mapped_page),
+                        fill="white",
+                        font=("Consolas", 10, "bold")
+                    )
                 else:
-                    surface.create_rectangle(calculated_x_pos+2, calculated_slot_y, calculated_x_pos+grid_cell_width-2, calculated_slot_y+36, fill="#1e2133", outline=VisualAestheticConfig.OUTLINE_HEX, width=1)
-            if fault_registered: 
-                surface.create_text(calculated_x_pos + grid_cell_width//2, grid_y_origin + frame_cap * 40 + 30, text="F", fill=VisualAestheticConfig.CRITICAL_HEX, font=("Consolas", 9, "bold"))
-            else: 
-                surface.create_text(calculated_x_pos + grid_cell_width//2, grid_y_origin + frame_cap * 40 + 30, text="•", fill=VisualAestheticConfig.SUCCESS_HEX, font=("Consolas", 12, "bold"))
+                    surface.create_rectangle(
+                        calculated_x_pos+2, calculated_slot_y,
+                        calculated_x_pos+grid_cell_width-2, calculated_slot_y+36,
+                        fill="#1e2133",
+                        outline=VisualAestheticConfig.OUTLINE_HEX,
+                        width=1
+                    )
+            
+            # Draw fault/hit indicator
+            state_y = grid_y_origin + frame_cap * 40 + 30
+            if fault_registered:
+                surface.create_text(
+                    calculated_x_pos + grid_cell_width//2,
+                    state_y,
+                    text="F",
+                    fill=VisualAestheticConfig.CRITICAL_HEX,
+                    font=("Consolas", 9, "bold")
+                )
+            else:
+                surface.create_text(
+                    calculated_x_pos + grid_cell_width//2,
+                    state_y,
+                    text="•",
+                    fill=VisualAestheticConfig.SUCCESS_HEX,
+                    font=("Consolas", 12, "bold")
+                )
 
-        for slot_idx in range(frame_cap): 
-            surface.create_text(32, grid_y_origin + slot_idx * 40 + 38, text=f"Slot {slot_idx+1}", fill=VisualAestheticConfig.CAPTION_HEX, font=VisualAestheticConfig.COMPACT_MATRICES)
-        surface.create_text(32, grid_y_origin + frame_cap * 40 + 30, text="State", fill=VisualAestheticConfig.CAPTION_HEX, font=VisualAestheticConfig.COMPACT_MATRICES)
+        # Draw slot labels
+        for slot_idx in range(frame_cap):
+            surface.create_text(
+                32, 
+                grid_y_origin + slot_idx * 40 + 38,
+                text=f"Slot {slot_idx+1}",
+                fill=VisualAestheticConfig.CAPTION_HEX,
+                font=VisualAestheticConfig.COMPACT_MATRICES,
+                anchor="e"
+            )
+        
+        surface.create_text(
+            32, 
+            grid_y_origin + frame_cap * 40 + 30,
+            text="State",
+            fill=VisualAestheticConfig.CAPTION_HEX,
+            font=VisualAestheticConfig.COMPACT_MATRICES,
+            anchor="e"
+        )
 
 
 class MassStorageTab(tk.Frame):
