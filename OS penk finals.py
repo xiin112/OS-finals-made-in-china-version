@@ -464,7 +464,7 @@ class CPUSchedulingTab(tk.Frame):
 
 
 class MemoryAllocationTab(tk.Frame):
-    STRATEGIES = ["First Fit", "Best Fit", "Worst Fit", "Next Fit"]
+    STRATEGIES = ["First Fit", "Best Fit", "Worst Fit", "Next Fit", "MVT (First Fit)", "MVT (Best Fit)", "MVT (Worst Fit)"]
 
     def __init__(self, master_canvas):
         super().__init__(master_canvas, bg=VisualAestheticConfig.CANVAS_HEX)
@@ -532,69 +532,117 @@ class MemoryAllocationTab(tk.Frame):
         working_partitions_state = list(memory_partitions)
         placement_matrix = [-1] * len(dynamic_requests)
         historical_index_tracker = 0
+        
+        original_partitions = list(memory_partitions)
 
         for req_idx, request_size in enumerate(dynamic_requests):
             identified_partition_idx = -1
             self.telemetry_banner.config(text=f"Scanning partitions for Process {req_idx+1} ({request_size}KB)...", fg=VisualAestheticConfig.HIGHLIGHT_HEX)
 
-            if selected_mode == "First Fit":
-                for part_idx, partition_size in enumerate(working_partitions_state):
-                    self._execute_frame_refresh(memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=part_idx, focused_request_idx=req_idx)
-                    if partition_size >= request_size:
-                        identified_partition_idx = part_idx
-                        break
-            elif selected_mode == "Best Fit":
-                minimum_residual_space = float('inf')
-                for part_idx, partition_size in enumerate(working_partitions_state):
-                    self._execute_frame_refresh(memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=part_idx, focused_request_idx=req_idx)
-                    if partition_size >= request_size and (partition_size - request_size) < minimum_residual_space:
-                        minimum_residual_space = partition_size - request_size
-                        identified_partition_idx = part_idx
-                if identified_partition_idx != -1: self._execute_frame_refresh(memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=identified_partition_idx, focused_request_idx=req_idx)
-            elif selected_mode == "Worst Fit":
-                maximum_residual_space = -1
-                for part_idx, partition_size in enumerate(working_partitions_state):
-                    self._execute_frame_refresh(memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=part_idx, focused_request_idx=req_idx)
-                    if partition_size >= request_size and (partition_size - request_size) > maximum_residual_space:
-                        maximum_residual_space = partition_size - request_size
-                        identified_partition_idx = part_idx
-                if identified_partition_idx != -1: self._execute_frame_refresh(memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=identified_partition_idx, focused_request_idx=req_idx)
-            elif selected_mode == "Next Fit":
-                starting_scan_point = historical_index_tracker
-                for lookup_offset in range(len(working_partitions_state)):
-                    part_idx = (starting_scan_point + lookup_offset) % len(working_partitions_state)
-                    self._execute_frame_refresh(memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=part_idx, focused_request_idx=req_idx)
-                    if working_partitions_state[part_idx] >= request_size:
-                        identified_partition_idx = part_idx; historical_index_tracker = part_idx
-                        break
+            if "MVT" in selected_mode:
+                if "First Fit" in selected_mode:
+                    for part_idx, partition_size in enumerate(working_partitions_state):
+                        self._execute_frame_refresh(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=part_idx, focused_request_idx=req_idx)
+                        if partition_size >= request_size:
+                            identified_partition_idx = part_idx
+                            break
+                elif "Best Fit" in selected_mode:
+                    minimum_residual_space = float('inf')
+                    for part_idx, partition_size in enumerate(working_partitions_state):
+                        self._execute_frame_refresh(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=part_idx, focused_request_idx=req_idx)
+                        if partition_size >= request_size and (partition_size - request_size) < minimum_residual_space:
+                            minimum_residual_space = partition_size - request_size
+                            identified_partition_idx = part_idx
+                elif "Worst Fit" in selected_mode:
+                    maximum_residual_space = -1
+                    for part_idx, partition_size in enumerate(working_partitions_state):
+                        self._execute_frame_refresh(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=part_idx, focused_request_idx=req_idx)
+                        if partition_size >= request_size and (partition_size - request_size) > maximum_residual_space:
+                            maximum_residual_space = partition_size - request_size
+                            identified_partition_idx = part_idx
 
-            if identified_partition_idx != -1:
-                placement_matrix[req_idx] = identified_partition_idx
-                working_partitions_state[identified_partition_idx] -= request_size
-                self.telemetry_banner.config(text=f"✅ Process {req_idx+1} allocated to Block {identified_partition_idx+1}!", fg=VisualAestheticConfig.SUCCESS_HEX)
-                self._render_memory_blueprint(memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=-1, focused_request_idx=-1)
-                time.sleep(0.3)
+                if identified_partition_idx != -1:
+                    placement_matrix[req_idx] = identified_partition_idx
+                    leftover_space = working_partitions_state[identified_partition_idx] - request_size
+                    working_partitions_state[identified_partition_idx] = request_size
+                    memory_partitions[identified_partition_idx] = request_size
+                    
+                    if leftover_space > 0:
+                        working_partitions_state.append(leftover_space)
+                        memory_partitions.append(leftover_space)
+                        original_partitions.append(leftover_space)
+                    
+                    self.telemetry_banner.config(text=f"✅ MVT: Process {req_idx+1} packed dynamic block {identified_partition_idx+1}!", fg=VisualAestheticConfig.SUCCESS_HEX)
+                    self._render_memory_blueprint(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=-1, focused_request_idx=-1)
+                    time.sleep(0.3)
+                else:
+                    self.telemetry_banner.config(text=f"❌ Process {req_idx+1} failed to allocate.", fg=VisualAestheticConfig.CRITICAL_HEX)
+                    self._render_memory_blueprint(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=-1, focused_request_idx=-1)
+                    time.sleep(0.3)
+
             else:
-                self.telemetry_banner.config(text=f"❌ Process {req_idx+1} failed to allocate.", fg=VisualAestheticConfig.CRITICAL_HEX)
-                self._render_memory_blueprint(memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=-1, focused_request_idx=-1)
-                time.sleep(0.3)
-            self._update_textual_log(memory_partitions, working_partitions_state, dynamic_requests, placement_matrix)
+                if selected_mode == "First Fit":
+                    for part_idx, partition_size in enumerate(working_partitions_state):
+                        self._execute_frame_refresh(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=part_idx, focused_request_idx=req_idx)
+                        if partition_size >= request_size:
+                            identified_partition_idx = part_idx
+                            break
+                elif selected_mode == "Best Fit":
+                    minimum_residual_space = float('inf')
+                    for part_idx, partition_size in enumerate(working_partitions_state):
+                        self._execute_frame_refresh(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=part_idx, focused_request_idx=req_idx)
+                        if partition_size >= request_size and (partition_size - request_size) < minimum_residual_space:
+                            minimum_residual_space = partition_size - request_size
+                            identified_partition_idx = part_idx
+                    if identified_partition_idx != -1: self._execute_frame_refresh(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=identified_partition_idx, focused_request_idx=req_idx)
+                elif selected_mode == "Worst Fit":
+                    maximum_residual_space = -1
+                    for part_idx, partition_size in enumerate(working_partitions_state):
+                        self._execute_frame_refresh(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=part_idx, focused_request_idx=req_idx)
+                        if partition_size >= request_size and (partition_size - request_size) > maximum_residual_space:
+                            maximum_residual_space = partition_size - request_size
+                            identified_partition_idx = part_idx
+                    if identified_partition_idx != -1: self._execute_frame_refresh(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=identified_partition_idx, focused_request_idx=req_idx)
+                elif selected_mode == "Next Fit":
+                    starting_scan_point = historical_index_tracker
+                    for lookup_offset in range(len(working_partitions_state)):
+                        part_idx = (starting_scan_point + lookup_offset) % len(working_partitions_state)
+                        self._execute_frame_refresh(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=part_idx, focused_request_idx=req_idx)
+                        if working_partitions_state[part_idx] >= request_size:
+                            identified_partition_idx = part_idx; historical_index_tracker = part_idx
+                            break
+
+                if identified_partition_idx != -1:
+                    placement_matrix[req_idx] = identified_partition_idx
+                    working_partitions_state[identified_partition_idx] -= request_size
+                    self.telemetry_banner.config(text=f"✅ Process {req_idx+1} allocated to Block {identified_partition_idx+1}!", fg=VisualAestheticConfig.SUCCESS_HEX)
+                    self._render_memory_blueprint(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=-1, focused_request_idx=-1)
+                    time.sleep(0.3)
+                else:
+                    self.telemetry_banner.config(text=f"❌ Process {req_idx+1} failed to allocate.", fg=VisualAestheticConfig.CRITICAL_HEX)
+                    self._render_memory_blueprint(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=-1, focused_request_idx=-1)
+                    time.sleep(0.3)
+            
+            self._update_textual_log(memory_partitions, working_partitions_state, dynamic_requests, placement_matrix, selected_mode)
 
         self.simulation_active = False
         self.execution_trigger_btn.config(state="normal", bg=VisualAestheticConfig.PRIMARY_HEX, text="▶  Allocate")
         self.telemetry_banner.config(text="Allocation Mapping Complete", fg=VisualAestheticConfig.SUCCESS_HEX)
 
-    def _execute_frame_refresh(self, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=-1, focused_request_idx=-1):
-        self._render_memory_blueprint(memory_partitions, dynamic_requests, placement_matrix, target_partition_idx, focused_request_idx)
+    def _execute_frame_refresh(self, original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx=-1, focused_request_idx=-1):
+        self._render_memory_blueprint(original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx, focused_request_idx)
         time.sleep(0.5)
 
     HEX_ARRAY_PALETTE = ["#7c6af7", "#38c9b0", "#f7c26a", "#f76a6a", "#6af7a1", "#f7a26a"]
 
-    def _render_memory_blueprint(self, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx, focused_request_idx):
+    def _render_memory_blueprint(self, original_partitions, memory_partitions, dynamic_requests, placement_matrix, target_partition_idx, focused_request_idx):
         surface = self.graphic_render_surface; surface.delete("all")
         surface_width, surface_height = surface.winfo_width() or 800, surface.winfo_height() or 350
-        peak_partition_dimension = max(memory_partitions) if memory_partitions else 1
-        column_width, dimensional_gap = 65, 35
+        peak_partition_dimension = max(original_partitions) if original_partitions else 1
+        
+        column_width = min(65, int(450 / len(memory_partitions)))
+        dimensional_gap = min(35, int(200 / len(memory_partitions)))
+        
         centered_x_origin = (surface_width - (len(memory_partitions) * (column_width + dimensional_gap))) // 2
         top_boundary_y, lower_boundary_y = 60, surface_height - 70
 
@@ -609,7 +657,7 @@ class MemoryAllocationTab(tk.Frame):
 
             surface.create_rectangle(calculated_x_pos, calculated_top_y, calculated_x_pos+column_width, lower_boundary_y, fill="#2a2d40", outline=dynamic_outline_hex, width=calculated_thickness)
             surface.create_text(calculated_x_pos + column_width//2, calculated_top_y - 14, text=f"{raw_dimension}KB", fill=VisualAestheticConfig.CAPTION_HEX, font=VisualAestheticConfig.COMPACT_MATRICES)
-            surface.create_text(calculated_x_pos + column_width//2, lower_boundary_y + 14, text=f"Block {current_idx+1}", fill=VisualAestheticConfig.BODY_HEX, font=("Segoe UI", 9, "bold"))
+            surface.create_text(calculated_x_pos + column_width//2, lower_boundary_y + 14, text=f"B {current_idx+1}", fill=VisualAestheticConfig.BODY_HEX, font=("Segoe UI", 9, "bold"))
 
             total_block_pixel_span = lower_boundary_y - calculated_top_y
             requests_bound_to_partition = [req_idx for req_idx, map_idx in enumerate(placement_matrix) if map_idx == current_idx]
@@ -645,10 +693,16 @@ class MemoryAllocationTab(tk.Frame):
             surface.create_text(legend_cursor_x+14, legend_cursor_y-3, text=f"P{req_idx+1} ({individual_payload_size}KB) → {status_text_output}", fill=VisualAestheticConfig.BODY_HEX, font=VisualAestheticConfig.COMPACT_MATRICES, anchor="w")
             legend_cursor_x += 170
 
-    def _update_textual_log(self, raw_partitions, updated_partitions, requests, placements):
+    def _update_textual_log(self, current_partitions, updated_partitions, requests, placements, mode):
         text_buffer_lines = [f"{'Process':<10}{'Size':<10}{'Block':<10}{'Status'}", "─" * 45]
         for req_idx, (individual_payload_size, mapped_block_idx) in enumerate(zip(requests, placements)):
-            status_summary_token = f"B{mapped_block_idx+1} (Frag {updated_partitions[mapped_block_idx]}KB)" if mapped_block_idx != -1 else "✗ Out of Space"
+            if mapped_block_idx != -1:
+                if "MVT" in mode:
+                    status_summary_token = f"B{mapped_block_idx+1} (Perfect Fit)"
+                else:
+                    status_summary_token = f"B{mapped_block_idx+1} (Frag {updated_partitions[mapped_block_idx]}KB)"
+            else:
+                status_summary_token = "✗ Out of Space"
             text_buffer_lines.append(f"P{req_idx+1:<9}{individual_payload_size:<10}{mapped_block_idx+1 if mapped_block_idx!=-1 else '-':<10}{status_summary_token}")
         text_buffer_lines.append(f"\n  Allocated: {sum(1 for mark in placements if mark != -1)}/{len(requests)}")
         self.summary_text_log.config(state="normal")
