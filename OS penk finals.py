@@ -992,7 +992,8 @@ class MassStorageTab(tk.Frame):
         else: execution_sequence = list(requests)
 
         complete_plotted_path = [head] + execution_sequence
-        computed_total_displacement = sum(abs(complete_plotted_path[idx+1] - complete_plotted_path[idx]) for idx in range(len(complete_plotted_path)-1))
+        # Calculation for Total Movement
+        total_movements = sum(abs(complete_plotted_path[idx+1] - complete_plotted_path[idx]) for idx in range(len(complete_plotted_path)-1))
         
         for step_idx in range(1, len(complete_plotted_path) + 1):
             runtime_partial_path = complete_plotted_path[:step_idx]
@@ -1005,8 +1006,8 @@ class MassStorageTab(tk.Frame):
         self.telemetry_banner.config(text="Head Scan Sequence Complete", fg=VisualAestheticConfig.SUCCESS_HEX)
         
         summary_panel_text = ["┌─────────────────────────────┐"]
-        summary_panel_text.append(f"│ Total Movement: {computed_total_displacement:<16} │")
-        summary_panel_text.append(f"│ Requests Served: {len(requests):<15} │")
+        summary_panel_text.append(f"│ Total Movements: {total_movements:<11}│")
+        summary_panel_text.append(f"│ Requests Served: {len(requests):<11}│")
         summary_panel_text.append("├─────────────────────────────┤")
         summary_panel_text.append(f"│ Service Order:              │")
         flattened_service_order_string = " → ".join(map(str, [node for node in execution_sequence if node in requests]))
