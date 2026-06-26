@@ -15,17 +15,17 @@ from collections import deque, OrderedDict
 from copy import deepcopy
 
 # ─── THEME ──────────────────────────────────────────────────────────────────
-BG        = "#0f1117"
-PANEL     = "#1a1d27"
-CARD      = "#22263a"
-ACCENT    = "#7c6af7"      # soft violet
-ACCENT2   = "#38c9b0"      # teal
-WARN      = "#f7c26a"      # amber
-DANGER    = "#f76a6a"      # red
-TEXT      = "#e8eaf6"
-SUBTEXT   = "#8b8fa8"
-BORDER    = "#2e3148"
-GREEN     = "#6af7a1"
+BG        = "#fce4ec"
+PANEL     = "#f8bbd0"
+CARD      = "#fef5f8"
+ACCENT    = "#ff1493"      # deep pink
+ACCENT2   = "#ffb6d9"      # light pink
+WARN      = "#ff88cc"      # rose pink
+DANGER    = "#ff6b7a"      # coral pink
+TEXT      = "#3B031B"
+SUBTEXT   = "#795569"
+BORDER    = "#e5b3d0"
+GREEN     = "#ff69b4"
 
 FONT_H1   = ("Segoe UI", 18, "bold")
 FONT_H2   = ("Segoe UI", 13, "bold")
@@ -85,7 +85,6 @@ class CPUSchedulingTab(tk.Frame):
         ctrl.pack_propagate(False)
 
         section_label(ctrl, "CPU Scheduling").pack(anchor="w", padx=PAD, pady=(PAD, 2))
-        info_label(ctrl, "Simulate how the OS picks which process runs next on the CPU.").pack(anchor="w", padx=PAD, pady=(0, PAD))
 
         tk.Label(ctrl, text="Algorithm", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.algo_var = tk.StringVar(value=self.ALGOS[0])
@@ -120,10 +119,12 @@ class CPUSchedulingTab(tk.Frame):
         styled_button(btn_f, "Random", self._randomize, WARN).pack(side="left", padx=2)
 
         self.run_btn = styled_button(ctrl, "▶  Run Animation", self._start_simulation, ACCENT)
-        self.run_btn.pack(fill="x", padx=PAD, pady=(0, PAD))
+        self.run_btn.pack(fill="x", padx=PAD, pady=(PAD, 4))
 
-        self.stats_label = tk.Label(ctrl, text="", bg=PANEL, fg=ACCENT2, font=FONT_TINY, justify="left", wraplength=230)
-        self.stats_label.pack(anchor="w", padx=PAD)
+        tk.Label(ctrl, text="Process Statistics", bg=PANEL, fg=TEXT, font=FONT_H3).pack(anchor="w", padx=PAD, pady=(4, 2))
+        self.stats_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=FONT_MONO, height=10, relief="flat", state="disabled", 
+                                   highlightthickness=0, wrap="word", padx=6, pady=4)
+        self.stats_text.pack(fill="both", expand=True, padx=PAD, pady=(0, PAD))
 
         right = tk.Frame(self, bg=BG)
         right.pack(side="left", fill="both", expand=True, padx=(4, PAD), pady=PAD)
@@ -358,10 +359,27 @@ class CPUSchedulingTab(tk.Frame):
         if not stats: return
         avg_w = sum(s["wait"] for s in stats) / len(stats)
         avg_t = sum(s["turnaround"] for s in stats) / len(stats)
-        lines = ["  PID   Wait   Turnaround"]
-        for s in stats: lines.append(f"  {s['pid']:<6} {s['wait']:<7} {s['turnaround']}")
-        lines.append(f"\n  Avg Wait: {avg_w:.2f}   Avg Turnaround: {avg_t:.2f}")
-        self.stats_label.config(text="\n".join(lines))
+        
+        # Build formatted table
+        lines = ["┌──────┬──────────┬──────────────┐"]
+        lines.append("│ PID  │ Waiting  │ Turnaround   │")
+        lines.append("├──────┼──────────┼──────────────┤")
+        
+        for s in stats:
+            pid = s['pid'].ljust(4)
+            wait = str(s['wait']).ljust(8)
+            turnaround = str(s['turnaround']).ljust(12)
+            lines.append(f"│ {pid} │ {wait} │ {turnaround} │")
+        
+        lines.append("└──────┴──────────┴──────────────┘")
+        lines.append("")
+        lines.append(f"Average Waiting Time    : {avg_w:.2f} ms")
+        lines.append(f"Average Turnaround Time : {avg_t:.2f} ms")
+        
+        self.stats_text.config(state="normal")
+        self.stats_text.delete("1.0", "end")
+        self.stats_text.insert("end", "\n".join(lines))
+        self.stats_text.config(state="disabled")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -382,7 +400,6 @@ class MemoryAllocationTab(tk.Frame):
         ctrl.pack_propagate(False)
 
         section_label(ctrl, "Memory Allocation").pack(anchor="w", padx=PAD, pady=(PAD, 2))
-        info_label(ctrl, "Allocate process memory into fixed-size memory blocks.").pack(anchor="w", padx=PAD, pady=(0, PAD))
 
         tk.Label(ctrl, text="Algorithm", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.algo_var = tk.StringVar(value="First Fit")
@@ -398,10 +415,11 @@ class MemoryAllocationTab(tk.Frame):
 
         styled_button(ctrl, "Random", self._randomize, WARN).pack(anchor="w", padx=PAD, pady=2)
         self.run_btn = styled_button(ctrl, "▶  Allocate", self._start_simulation, ACCENT)
-        self.run_btn.pack(fill="x", padx=PAD, pady=(PAD, 0))
+        self.run_btn.pack(fill="x", padx=PAD, pady=(PAD, 4))
 
-        self.result_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=FONT_TINY, height=12, relief="flat", state="disabled", highlightthickness=0)
-        self.result_text.pack(fill="x", padx=PAD, pady=PAD)
+        tk.Label(ctrl, text="Allocation Summary", bg=PANEL, fg=TEXT, font=FONT_H3).pack(anchor="w", padx=PAD, pady=(4, 2))
+        self.result_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=FONT_MONO, height=10, relief="flat", state="disabled", highlightthickness=0, wrap="word", padx=6, pady=4)
+        self.result_text.pack(fill="both", expand=True, padx=PAD, pady=(0, PAD))
 
         right = tk.Frame(self, bg=BG)
         right.pack(side="left", fill="both", expand=True, padx=(4, PAD), pady=PAD)
@@ -477,9 +495,12 @@ class MemoryAllocationTab(tk.Frame):
                 allocations[pi] = chosen_block_idx
                 remaining_blocks[chosen_block_idx] -= p_size
                 self.status_bar.config(text=f"✅ Process {pi+1} allocated to Block {chosen_block_idx+1}!", fg=GREEN)
+                self._draw_memory_map(blocks, procs, allocations, scan_block_idx=-1, active_proc_idx=-1)
+                time.sleep(0.3)
             else:
                 self.status_bar.config(text=f"❌ Process {pi+1} failed to allocate.", fg=DANGER)
-            time.sleep(0.6)
+                self._draw_memory_map(blocks, procs, allocations, scan_block_idx=-1, active_proc_idx=-1)
+                time.sleep(0.3)
             self._update_text_results(blocks, remaining_blocks, procs, allocations)
 
         self.is_running = False
@@ -513,13 +534,24 @@ class MemoryAllocationTab(tk.Frame):
             c.create_text(x + bar_w//2, by - 14, text=f"{block}KB", fill=SUBTEXT, font=FONT_TINY)
             c.create_text(x + bar_w//2, bottom_y + 14, text=f"Block {i+1}", fill=TEXT, font=("Segoe UI", 9, "bold"))
 
-            current_occupied_offset = 0
-            for pi, bi in enumerate(alloc):
-                if bi == i:
+            block_height = bottom_y - by
+            proc_indices_in_block = [pi for pi, bi in enumerate(alloc) if bi == i]
+            
+            if proc_indices_in_block:
+                total_proc_size = sum(procs[pi] for pi in proc_indices_in_block)
+                current_occupied_offset = 0
+                
+                for idx, pi in enumerate(proc_indices_in_block):
                     proc_size = procs[pi]
-                    proc_h = int((proc_size / max_b) * (bottom_y - top_y))
-                    py0 = bottom_y - current_occupied_offset - proc_h
+
+                    if idx == len(proc_indices_in_block) - 1:
+                        proc_h = block_height - current_occupied_offset
+                    else:
+                        proc_h = max(1, int((proc_size / total_proc_size) * block_height))
+                    
                     py1 = bottom_y - current_occupied_offset
+                    py0 = py1 - proc_h
+                    
                     c.create_rectangle(x+2, py0+2, x+bar_w-2, py1-2, fill=self.BLOCK_COLORS[pi % len(self.BLOCK_COLORS)], outline="")
                     c.create_text(x + bar_w//2, (py0 + py1)//2, text=f"P{pi+1}\n{proc_size}KB", fill=BG, font=("Segoe UI", 8, "bold"), justify="center")
                     current_occupied_offset += proc_h
@@ -566,7 +598,6 @@ class VirtualMemoryTab(tk.Frame):
         ctrl.pack_propagate(False)
 
         section_label(ctrl, "Virtual Memory").pack(anchor="w", padx=PAD, pady=(PAD, 2))
-        info_label(ctrl, "Page replacement decides which memory page to evict when a page fault occurs.").pack(anchor="w", padx=PAD, pady=(0, PAD))
 
         tk.Label(ctrl, text="Algorithm", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
         self.algo_var = tk.StringVar(value="FIFO")
@@ -582,14 +613,15 @@ class VirtualMemoryTab(tk.Frame):
 
         styled_button(ctrl, "Random String", self._randomize, WARN).pack(anchor="w", padx=PAD, pady=2)
         self.run_btn = styled_button(ctrl, "▶  Simulate", self._start_simulation, ACCENT)
-        self.run_btn.pack(fill="x", padx=PAD, pady=(PAD, 0))
+        self.run_btn.pack(fill="x", padx=PAD, pady=(PAD, 4))
 
-        self.stats_label = tk.Label(ctrl, text="", bg=PANEL, fg=ACCENT2, font=FONT_TINY, justify="left")
-        self.stats_label.pack(anchor="w", padx=PAD, pady=PAD)
+        tk.Label(ctrl, text="Page Replacement Stats", bg=PANEL, fg=TEXT, font=FONT_H3).pack(anchor="w", padx=PAD, pady=(4, 2))
+        self.stats_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=FONT_MONO, height=6, relief="flat", state="disabled", highlightthickness=0, wrap="word", padx=6, pady=4)
+        self.stats_text.pack(fill="both", expand=True, padx=PAD, pady=(0, 4))
 
-        tk.Label(ctrl, text="Step Log", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD)
-        self.log_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=("Consolas", 8), height=14, relief="flat", state="disabled", highlightthickness=0)
-        self.log_text.pack(fill="both", expand=True, padx=PAD, pady=(2, PAD))
+        tk.Label(ctrl, text="Step Log", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(anchor="w", padx=PAD, pady=(4, 2))
+        self.log_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=("Consolas", 8), height=8, relief="flat", state="disabled", highlightthickness=0)
+        self.log_text.pack(fill="both", expand=True, padx=PAD, pady=(0, PAD))
 
         right = tk.Frame(self, bg=BG)
         right.pack(side="left", fill="both", expand=True, padx=(4, PAD), pady=PAD)
@@ -630,7 +662,19 @@ class VirtualMemoryTab(tk.Frame):
         self.run_btn.config(state="normal", bg=ACCENT, text="▶  Simulate")
         self.status_bar.config(text="Simulation Complete", fg=GREEN)
         total_faults = sum(faults)
-        self.stats_label.config(text=f"  Page Faults : {total_faults}\n  Page Hits   : {len(refs)-total_faults}\n  Hit Rate    : {((len(refs)-total_faults)/len(refs))*100:.1f}%")
+        hit_rate = ((len(refs)-total_faults)/len(refs))*100
+        
+        # Update stats panel
+        lines = ["─────────────────────────────────"]
+        lines.append(f" Page Faults  : {total_faults:<18}   ")
+        lines.append(f" Page Hits    : {len(refs)-total_faults:<18}")
+        lines.append(f" Hit Rate     : {hit_rate:>5.1f}%    ")
+        lines.append("────────────────────────────")
+        
+        self.stats_text.config(state="normal")
+        self.stats_text.delete("1.0", "end")
+        self.stats_text.insert("end", "\n".join(lines))
+        self.stats_text.config(state="disabled")
 
     def _animate_fifo(self, refs, n, history, faults):
         queue = deque()
@@ -756,13 +800,11 @@ class MassStorageTab(tk.Frame):
 
         styled_button(ctrl, "Random", self._randomize, WARN).pack(anchor="w", padx=PAD, pady=2)
         self.run_btn = styled_button(ctrl, "▶  Simulate", self._start_simulation, ACCENT)
-        self.run_btn.pack(fill="x", padx=PAD, pady=(PAD, 0))
+        self.run_btn.pack(fill="x", padx=PAD, pady=(PAD, 4))
 
-        self.stats_label = tk.Label(ctrl, text="", bg=PANEL, fg=ACCENT2, font=FONT_TINY, justify="left")
-        self.stats_label.pack(anchor="w", padx=PAD, pady=PAD)
-
-        self.order_label = tk.Label(ctrl, text="", bg=PANEL, fg=TEXT, font=FONT_TINY, justify="left", wraplength=230)
-        self.order_label.pack(anchor="w", padx=PAD)
+        tk.Label(ctrl, text="Disk Seek Summary", bg=PANEL, fg=TEXT, font=FONT_H3).pack(anchor="w", padx=PAD, pady=(4, 2))
+        self.stats_text = tk.Text(ctrl, bg=CARD, fg=TEXT, font=FONT_MONO, height=10, relief="flat", state="disabled", highlightthickness=0, wrap="word", padx=6, pady=4)
+        self.stats_text.pack(fill="both", expand=True, padx=PAD, pady=(0, PAD))
 
         right = tk.Frame(self, bg=BG)
         right.pack(side="left", fill="both", expand=True, padx=(4, PAD), pady=PAD)
@@ -824,8 +866,23 @@ class MassStorageTab(tk.Frame):
         self.is_running = False
         self.run_btn.config(state="normal", bg=ACCENT, text="▶  Simulate")
         self.status_bar.config(text="Head Scan Sequence Complete", fg=GREEN)
-        self.stats_label.config(text=f"  Total Head Movement: {total_movement} cylinders\n  Requests Served    : {len(reqs)}")
-        self.order_label.config(text="Service Order: " + " → ".join(map(str, [o for o in order if o in reqs])))
+        
+        # Update stats panel
+        lines = ["┌─────────────────────────────┐"]
+        lines.append(f"│ Total Movement: {total_movement:<16} │")
+        lines.append(f"│ Requests Served: {len(reqs):<15} │")
+        lines.append("├─────────────────────────────┤")
+        lines.append(f"│ Service Order:              │")
+        service_order = " → ".join(map(str, [o for o in order if o in reqs]))
+        lines.append(f"│ {service_order[:26]:<27} │")
+        if len(service_order) > 26:
+            lines.append(f"│ {service_order[26:]:<27} │")
+        lines.append("└─────────────────────────────┘")
+        
+        self.stats_text.config(state="normal")
+        self.stats_text.delete("1.0", "end")
+        self.stats_text.insert("end", "\n".join(lines))
+        self.stats_text.config(state="disabled")
 
     def _draw_graph(self, path, max_c, final_len):
         c = self.canvas; c.delete("all")
@@ -853,9 +910,9 @@ class MassStorageTab(tk.Frame):
             c.create_line(cx(i), cy(path[i]), cx(i+1), cy(path[i+1]), fill=ACCENT, width=2)
 
         for i, val in enumerate(path):
-            col = WARN if i == 0 else (ACCENT2 if i == len(path)-1 else SUBTEXT)
-            c.create_oval(cx(i)-4, cy(val)-4, cx(i+4), cy(val)+4, fill=col, outline=BG, width=1)
-            c.create_text(cx(i), cy(val)-14, text=str(val), fill=col, font=FONT_TINY)
+            col = WARN if i == 0 else (ACCENT2 if i == len(path)-1 else ACCENT)
+            c.create_oval(cx(i)-6, cy(val)-6, cx(i)+6, cy(val)+6, fill=col, outline=BG, width=2)
+            c.create_text(cx(i), cy(val)-16, text=str(val), fill=col, font=FONT_TINY)
         c.create_text(14, mt + plot_h//2, text="Cylinder ID", fill=SUBTEXT, font=FONT_TINY, angle=90)
 
 
@@ -888,8 +945,7 @@ class OSVisualizerApp(tk.Tk):
         hdr = tk.Frame(self, bg=PANEL, height=52)
         hdr.pack(fill="x")
         hdr.pack_propagate(False)
-        tk.Label(hdr, text="⚙  OS Algorithm Visualizer", bg=PANEL, fg=TEXT, font=FONT_H1).pack(side="left", padx=20, pady=10)
-        tk.Label(hdr, text="CPU · Memory · Virtual Memory · Mass Storage", bg=PANEL, fg=SUBTEXT, font=FONT_TINY).pack(side="left", padx=4)
+        tk.Label(hdr, text="Scheduling Algorithm Visualizer", bg=PANEL, fg=TEXT, font=FONT_H1).pack(pady=10)
 
         nb = ttk.Notebook(self, style="Custom.TNotebook")
         nb.pack(fill="both", expand=True, padx=0, pady=0)
